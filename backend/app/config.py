@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     APP_NAME: str = "Lead CRM"
+    FRONTEND_DIR: str = os.getenv("FRONTEND_DIR", "/opt/leadcrm/frontend")
     ENV: str = os.getenv("ENV", "production")
 
     # Database - defaults to a local SQLite file for quick evaluation.
