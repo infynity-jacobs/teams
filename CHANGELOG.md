@@ -9,6 +9,31 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - (nothing yet)
 
+## [0.1.1] - 2026-08-31
+
+### Fixed
+- `deploy/install_ubuntu22.sh`: no longer fails with a spurious
+  "could not change directory" warning when invoked from inside a
+  locked-down home directory — the script now moves to `/tmp` before
+  any `sudo -u postgres` calls.
+- `deploy/install_ubuntu22.sh`: explicitly starts PostgreSQL and
+  waits (up to 30s) for it to accept connections before touching the
+  database, instead of failing opaquely mid-script if the service
+  wasn't up yet.
+- `deploy/install_ubuntu22.sh`: fixed a credential desync bug where
+  re-running the script after a partial failure would generate a new
+  random DB password without updating the already-created Postgres
+  role to match, silently breaking the app. Re-runs now reuse
+  existing `backend/.env` credentials, and `ALTER ROLE` keeps the
+  Postgres role in sync if it already exists.
+- `deploy/install_ubuntu22.sh`: no longer overwrites an existing
+  Nginx site config on re-run, so a customized `server_name`/TLS
+  setup survives.
+
+### Added
+- `TROUBLESHOOTING.md` covering the above and a few other common
+  first-deploy issues.
+
 ## [0.1.0] - 2026-08-31
 
 ### Added

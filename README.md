@@ -120,6 +120,13 @@ To redeploy after code changes, copy the updated `backend/` and
 `frontend/` folders into `/opt/leadcrm/`, reinstall any new Python
 dependencies into the venv, then `sudo systemctl restart leadcrm-backend`.
 
+## Troubleshooting
+
+Hitting an install or deployment error? Check `TROUBLESHOOTING.md`
+first — it covers the PostgreSQL connection/permission errors people
+most commonly hit on first install, and how to confirm the install
+script's re-run is safe.
+
 ## Contributing
 
 See `CONTRIBUTING.md` for the branch strategy (`main` / `dev` /
