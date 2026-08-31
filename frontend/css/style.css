@@ -1,0 +1,23 @@
+body { background: #f4f6f9; }
+.login-card { width: 380px; }
+.stat-card { border: none; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.stat-card .stat-value { font-size: 1.8rem; font-weight: 700; }
+.badge-status { text-transform: capitalize; font-weight: 500; }
+.status-new { background:#6c757d; }
+.status-contacted { background:#0d6efd; }
+.status-follow_up { background:#fd7e14; }
+.status-pending { background:#ffc107; color:#212529; }
+.status-converted { background:#198754; }
+.status-lost { background:#dc3545; }
+.status-closed { background:#343a40; }
+table.table td, table.table th { vertical-align: middle; }
+.clickable-row { cursor: pointer; }
+.clickable-row:hover { background: #eef3fb; }
+.timeline-item { border-left: 2px solid #dee2e6; padding-left: 1rem; margin-bottom: .75rem; position: relative; }
+.timeline-item::before { content: ''; position: absolute; left: -6px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #0d6efd; }
+#view-root { max-width: 1400px; margin: 0 auto; width: 100%; }
+.report-table { font-size: .9rem; }
+@media print {
+  nav, .no-print { display: none !important; }
+  #view-root { max-width: 100%; }
+}

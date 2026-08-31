@@ -1,0 +1,25 @@
+[Unit]
+Description=Lead CRM backend (FastAPI/Uvicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=leadcrm
+Group=leadcrm
+WorkingDirectory=/opt/leadcrm/backend
+EnvironmentFile=/opt/leadcrm/backend/.env
+ExecStart=/opt/leadcrm/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 3
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
