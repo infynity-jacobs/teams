@@ -42,6 +42,7 @@ leadcrm/
     js/api.js, ui.js, views.js, app.js
   deploy/
     install_ubuntu22.sh   One-shot Ubuntu 22.04 installer (Postgres, venv, systemd, Nginx)
+    reset_admin_password.sh  Reset any user's password directly (see Troubleshooting)
     leadcrm-backend.service   systemd unit
     nginx_leadcrm.conf         Nginx reverse-proxy config
     .env.example                 Environment variable template
@@ -136,6 +137,9 @@ CI (`.github/workflows/ci.yml`) runs automatically on every push and
 PR to `main` or `dev`: it lints and byte-compiles the backend, starts
 it and checks `/api/health`, syntax-checks the frontend JS, and
 shellchecks the install script.
+
+Locked out or can't log in? `sudo bash deploy/reset_admin_password.sh`
+resets any user's password directly — see `TROUBLESHOOTING.md`.
 
 ## Data model notes
 

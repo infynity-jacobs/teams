@@ -1,5 +1,44 @@
 # Troubleshooting
 
+## Can't log in with the auto-generated bootstrap password
+
+The bootstrap Super Admin account is only ever created **once** — the
+very first time the app starts against an empty `users` table. If
+`install_ubuntu22.sh` fails partway through and you re-run it, it
+generates and prints a *new* `BOOTSTRAP_ADMIN_PASSWORD` — but if an
+admin account already exists from an earlier attempt (even one that
+later failed for an unrelated reason), the app won't touch it. The
+password printed on screen and the password actually in the database
+end up being two different things.
+
+**Check whether this is what happened:**
+
+```bash
+sudo -u postgres psql -d leadcrm -c "SELECT id, username, role, is_active, created_at FROM users;"
+sudo journalctl -u leadcrm-backend --no-pager | grep -i "Bootstrapped initial Super Admin"
+```
+
+If a user already exists, or that log line only appears once and
+predates your latest install run, this is the cause.
+
+**Fix — reset the password directly:**
+
+```bash
+sudo bash deploy/reset_admin_password.sh
+```
+
+This updates the `admin` user's password in the database using the
+app's own bcrypt hashing (so it's guaranteed compatible with login),
+and prints a freshly generated password. To set a specific
+username/password instead of the defaults:
+
+```bash
+sudo bash deploy/reset_admin_password.sh admin 'MyNewPassword123!'
+```
+
+Works for any username, not just the bootstrap admin — handy for
+resetting any user's password from the CLI if they're locked out.
+
 ## `install_ubuntu22.sh` fails with PostgreSQL connection/permission errors
 
 **Symptoms:**

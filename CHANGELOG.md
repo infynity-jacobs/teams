@@ -9,6 +9,17 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - (nothing yet)
 
+## [0.1.2] - 2026-08-31
+
+### Added
+- `deploy/reset_admin_password.sh`: resets any user's password
+  directly in the database using the app's own bcrypt hashing.
+  Fixes the common case where the bootstrap admin password printed
+  by a re-run of `install_ubuntu22.sh` doesn't match what's actually
+  stored, because the bootstrap admin is only ever created once
+  (the first time the app starts against an empty `users` table).
+- `TROUBLESHOOTING.md`: documented this scenario and the fix.
+
 ## [0.1.1] - 2026-08-31
 
 ### Fixed
