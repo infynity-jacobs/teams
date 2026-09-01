@@ -16,7 +16,8 @@ router = APIRouter(prefix="/api/import", tags=["import"])
 
 # Fields the application understands for mapping
 APPLICATION_FIELDS = [
-    "first_name", "last_name", "email", "phone", "company", "source", "notes",
+    "first_name", "last_name", "email", "phone", "company", "source",
+    "place_area", "referred_by", "notes",
 ]
 REQUIRED_FIELDS = ["first_name"]
 
@@ -126,6 +127,8 @@ async def commit_import(
                 phone=phone,
                 company=values.get("company"),
                 source=values.get("source") or default_source,
+                place_area=values.get("place_area"),
+                referred_by=values.get("referred_by"),
                 notes=values.get("notes"),
                 status=LeadStatusEnum.new,
                 dedup_key=dedup,

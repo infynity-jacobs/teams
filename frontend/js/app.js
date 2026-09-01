@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { hash: "#/reports", label: "Reports", icon: "bi-bar-chart", roles: null },
   { hash: "#/teams", label: "Teams", icon: "bi-diagram-3", roles: null },
   { hash: "#/users", label: "Users", icon: "bi-person-badge", roles: ["super_admin", "site_admin", "marketing_manager", "team_leader"] },
+  { hash: "#/settings", label: "Settings", icon: "bi-gear", roles: ["super_admin", "site_admin"] },
   { hash: "#/audit", label: "Audit Log", icon: "bi-journal-text", roles: ["super_admin", "site_admin"] },
 ];
 
@@ -46,6 +47,7 @@ async function router() {
     else if (path === "import") await Views.import(root);
     else if (path === "teams") await Views.teams(root);
     else if (path === "users") await Views.users(root);
+    else if (path === "settings") await Views.settings(root);
     else if (path === "reports") await Views.reports(root);
     else if (path === "audit") await Views.audit(root);
     else root.innerHTML = `<div class="alert alert-warning">Page not found.</div>`;

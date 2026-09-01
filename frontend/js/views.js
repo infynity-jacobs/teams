@@ -201,6 +201,8 @@ Views.leadDetail = async function (root, leadId) {
             <p class="mb-1"><i class="bi bi-telephone me-1 text-muted"></i>${escapeHtml(lead.phone || "-")}</p>
             <p class="mb-1"><i class="bi bi-building me-1 text-muted"></i>${escapeHtml(lead.company || "-")}</p>
             <p class="mb-1"><i class="bi bi-signpost me-1 text-muted"></i>Source: ${escapeHtml(lead.source || "-")}</p>
+            <p class="mb-1"><i class="bi bi-geo-alt me-1 text-muted"></i>Place/Area: ${escapeHtml(lead.place_area || "-")}</p>
+            <p class="mb-1"><i class="bi bi-person-hearts me-1 text-muted"></i>Referred By: ${escapeHtml(lead.referred_by || "-")}</p>
             <p class="mb-1"><i class="bi bi-people me-1 text-muted"></i>Team: ${escapeHtml(lead.team_name || "-")}</p>
             <p class="mb-1"><i class="bi bi-person-check me-1 text-muted"></i>Assigned: ${escapeHtml(lead.assigned_to_name || "Unassigned")}</p>
             <p class="mb-1"><i class="bi bi-calendar-plus me-1 text-muted"></i>Created: ${fmtDate(lead.created_at)}</p>
@@ -336,8 +338,11 @@ Views.leadDetail = async function (root, leadId) {
   });
 };
 
-Views._leadFormModal = function (lead, teams, staffList) {
+Views._leadFormModal = async function (lead, teams, staffList) {
   const isEdit = !!lead;
+  let referralOptions = [];
+  try { referralOptions = await apiFetch("/settings/options?category=referred_by"); } catch (e) { /* non-fatal - dropdown just stays empty */ }
+
   const { modal, el } = openModal(`
     <div class="modal-header"><h5 class="modal-title">${isEdit ? "Edit Lead" : "New Lead"}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
@@ -349,6 +354,15 @@ Views._leadFormModal = function (lead, teams, staffList) {
           <div class="col-6"><label class="form-label small">Phone</label><input class="form-control" name="phone" value="${escapeHtml(lead?.phone || "")}"></div>
           <div class="col-6"><label class="form-label small">Company</label><input class="form-control" name="company" value="${escapeHtml(lead?.company || "")}"></div>
           <div class="col-6"><label class="form-label small">Source</label><input class="form-control" name="source" value="${escapeHtml(lead?.source || "")}" placeholder="e.g. Website, Referral"></div>
+          <div class="col-6"><label class="form-label small">Place / Area</label><input class="form-control" name="place_area" value="${escapeHtml(lead?.place_area || "")}" placeholder="e.g. city, neighborhood, territory"></div>
+          <div class="col-6">
+            <label class="form-label small">Referred By</label>
+            <select class="form-select" name="referred_by">
+              <option value="">-- None --</option>
+              ${buildOptions(referralOptions, "value", "value", lead?.referred_by)}
+              ${lead?.referred_by && !referralOptions.some(o => o.value === lead.referred_by) ? `<option value="${escapeHtml(lead.referred_by)}" selected>${escapeHtml(lead.referred_by)} (inactive)</option>` : ""}
+            </select>
+          </div>
           <div class="col-12"><label class="form-label small">Notes</label><textarea class="form-control" name="notes" rows="2">${escapeHtml(lead?.notes || "")}</textarea></div>
         </div>
         <div id="lead-form-error" class="alert alert-danger py-2 mt-2 d-none"></div>
@@ -786,4 +800,96 @@ Views.audit = async function (root) {
       <td class="small text-muted">${l.details ? escapeHtml(JSON.stringify(l.details)) : "-"}</td>
       <td class="small">${escapeHtml(l.ip_address || "-")}</td>
     </tr>`).join("") || `<tr><td colspan="6" class="text-center text-muted py-4">No audit entries</td></tr>`;
+};
+
+// ---------------- Settings (admin-managed dropdown lists, e.g. Referred By) ----------------
+Views.settings = async function (root) {
+  root.innerHTML = `
+    <h4 class="mb-3">Settings</h4>
+    <div class="card">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+          <strong>Referred By</strong>
+          <div class="text-muted small">Values available in the "Referred By" dropdown when creating or editing a lead.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="new-option-btn"><i class="bi bi-plus-lg"></i> Add Value</button>
+      </div>
+      <div class="card-body">
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="show-inactive">
+          <label class="form-check-label small" for="show-inactive">Show deactivated values</label>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light"><tr><th>Value</th><th>Status</th><th>Added</th><th></th></tr></thead>
+            <tbody id="options-tbody"><tr><td colspan="4" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const CATEGORY = "referred_by";
+
+  const load = async () => {
+    const includeInactive = qs("#show-inactive").checked;
+    const options = await apiFetch(`/settings/options?category=${CATEGORY}&include_inactive=${includeInactive}`);
+    qs("#options-tbody").innerHTML = options.map(o => `
+      <tr>
+        <td>${escapeHtml(o.value)}</td>
+        <td>${o.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Deactivated</span>'}</td>
+        <td class="small text-muted">${fmtDate(o.created_at)}</td>
+        <td class="text-end">
+          ${o.is_active
+            ? `<button class="btn btn-sm btn-outline-danger deactivate-option" data-id="${o.id}"><i class="bi bi-slash-circle"></i> Deactivate</button>`
+            : `<button class="btn btn-sm btn-outline-success reactivate-option" data-value="${escapeHtml(o.value)}"><i class="bi bi-arrow-counterclockwise"></i> Reactivate</button>`}
+        </td>
+      </tr>`).join("") || `<tr><td colspan="4" class="text-center text-muted py-4">No values yet - add one to populate the lead form's dropdown.</td></tr>`;
+
+    qsa(".deactivate-option").forEach(btn => btn.addEventListener("click", async () => {
+      try {
+        await apiFetch(`/settings/options/${btn.dataset.id}`, { method: "DELETE" });
+        showToast("Value deactivated");
+        load();
+      } catch (e) { showToast(e.detail || "Failed to deactivate", "danger"); }
+    }));
+    qsa(".reactivate-option").forEach(btn => btn.addEventListener("click", async () => {
+      try {
+        await apiFetch("/settings/options", { method: "POST", body: { category: CATEGORY, value: btn.dataset.value } });
+        showToast("Value reactivated");
+        load();
+      } catch (e) { showToast(e.detail || "Failed to reactivate", "danger"); }
+    }));
+  };
+  load();
+
+  qs("#show-inactive").addEventListener("change", load);
+
+  qs("#new-option-btn").addEventListener("click", () => {
+    const { modal, el } = openModal(`
+      <div class="modal-header"><h5 class="modal-title">Add "Referred By" Value</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="option-form">
+          <label class="form-label small">Value</label>
+          <input class="form-control" name="value" required placeholder="e.g. Existing Customer, Trade Show, Google Ads">
+        </form>
+        <div id="option-form-error" class="alert alert-danger py-2 mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="option-save-btn">Add</button></div>
+    `);
+    qs("#option-save-btn", el).addEventListener("click", async () => {
+      const value = qs("#option-form", el).value.value.trim();
+      if (!value) return;
+      try {
+        await apiFetch("/settings/options", { method: "POST", body: { category: CATEGORY, value } });
+        showToast("Value added");
+        modal.hide();
+        load();
+      } catch (e) {
+        const box = qs("#option-form-error", el);
+        box.textContent = e.detail || "Failed to add value";
+        box.classList.remove("d-none");
+      }
+    });
+  });
 };

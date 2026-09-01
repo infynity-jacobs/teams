@@ -9,6 +9,64 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 - (nothing yet)
 
+## [0.2.0] - 2026-09-01
+
+### Added
+- Leads now have two new fields: **Place/Area** (free text, like
+  Company) and **Referred By** (a controlled dropdown).
+- New admin-managed Settings module: `SettingOption` model, grouped
+  by `category` (currently just `referred_by`), so more managed lists
+  can reuse the same table later without a schema change. CRUD is
+  restricted to Super Admin / Site Admin via `/api/settings/options`;
+  any authenticated user can read active options to populate the
+  dropdown. Deactivating an option is a soft delete — historical
+  leads keep showing their value even after it's removed from the
+  dropdown — and re-adding a deactivated value reactivates it rather
+  than erroring.
+- New Settings page in the frontend (nav item visible to Super
+  Admin/Site Admin only) for managing the Referred By list.
+- `place_area` and `referred_by` are now mappable fields in the XLSX
+  import column-mapping UI, and included in the lead lifecycle report
+  export columns.
+- `deploy/migrate.sh` + `deploy/migrations/`: a tracked SQL migration
+  runner for existing installs. `Base.metadata.create_all()` (run on
+  every backend startup) only creates missing *tables*, never adds
+  columns to a table that already exists — so upgrading an existing
+  database's `leads` table needs an explicit migration. Applied
+  migrations are tracked in a `schema_migrations` table so the script
+  is safe to re-run at any time.
+
+### Fixed
+- **`app/config.py`**: fixed a bug where the backend would crash
+  instantly on startup — before ever reaching the database — if
+  `backend/.env` contained any key not explicitly declared as a
+  `Settings` field. `install_ubuntu22.sh` always writes `FRONTEND_DIR`
+  into `.env`, so every install hit this. This was likely the actual
+  root cause behind earlier reports of `leadcrm-backend` crash-looping
+  and the `users` table never getting created, independent of and in
+  addition to any Postgres credential mismatch. Fixed by setting
+  `model_config = SettingsConfigDict(env_file=".env", extra="ignore")`.
+- `deploy/diagnose.sh` now also scans recent backend logs for this
+  specific `pydantic_core.ValidationError` signature and flags it
+  directly instead of only diagnosing DB-connection failures.
+- `TROUBLESHOOTING.md`: documented the above as its own section, and
+  documented the new `deploy/migrate.sh` step in the README.
+
+## [0.1.3] - 2026-08-31
+
+### Added
+- `deploy/diagnose.sh`: one-command health check for a Lead CRM
+  install — verifies PostgreSQL is running, that `backend/.env`'s
+  credentials actually authenticate, that the app's database schema
+  exists, and the backend systemd service's status, then prints a
+  specific fix for whatever it finds broken. Covers the case where
+  `reset_admin_password.sh` fails with `relation "users" does not
+  exist` (schema never created, almost always a Postgres
+  role/`.env` password mismatch left over from an earlier failed
+  install attempt).
+- `TROUBLESHOOTING.md`: documented this scenario and pointed to
+  `diagnose.sh` as the first thing to run when anything's wrong.
+
 ## [0.1.2] - 2026-08-31
 
 ### Added

@@ -32,13 +32,13 @@ def _apply_common_filters(q, date_from, date_to, team_id, staff_id, source, stat
 
 
 def _lead_rows(db: Session, leads):
-    headers = ["ID", "Name", "Email", "Phone", "Company", "Source", "Status",
+    headers = ["ID", "Name", "Email", "Phone", "Company", "Source", "Place/Area", "Referred By", "Status",
                "Assigned To", "Team", "Created", "Converted"]
     rows = []
     for l in leads:
         rows.append([
             l.id, f"{l.first_name} {l.last_name or ''}".strip(), l.email or "", l.phone or "",
-            l.company or "", l.source or "", l.status.value,
+            l.company or "", l.source or "", l.place_area or "", l.referred_by or "", l.status.value,
             l.assigned_to.full_name if l.assigned_to else "",
             l.team.name if l.team else "",
             l.created_at.strftime("%Y-%m-%d") if l.created_at else "",

@@ -2,7 +2,7 @@ import enum
 import datetime as dt
 
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Enum, JSON
+    Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Enum, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 
@@ -82,6 +82,8 @@ class Lead(Base):
     phone = Column(String(50), nullable=True, index=True)
     company = Column(String(200), nullable=True)
     source = Column(String(100), nullable=True)  # e.g. website, referral, campaign name
+    place_area = Column(String(200), nullable=True, index=True)  # e.g. city/neighborhood/territory
+    referred_by = Column(String(200), nullable=True, index=True)  # value chosen from Settings-managed list
     status = Column(Enum(LeadStatusEnum), nullable=False, default=LeadStatusEnum.new, index=True)
     assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)
@@ -147,6 +149,28 @@ class ImportBatch(Base):
     created_at = Column(DateTime, default=utcnow)
 
     imported_by = relationship("User")
+
+
+class SettingOption(Base):
+    """
+    Admin-managed dropdown values used elsewhere in the app (e.g. the
+    'Referred By' list on leads). Grouped by 'category' so this table can
+    back more than one managed list without a schema change - only
+    Super Admins and Site Admins may create/edit/deactivate entries
+    (see app/routers/settings.py); any authenticated user may read the
+    active options to populate a dropdown.
+    """
+    __tablename__ = "setting_options"
+    __table_args__ = (UniqueConstraint("category", "value", name="uq_setting_option_category_value"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String(50), nullable=False, index=True)  # e.g. "referred_by"
+    value = Column(String(200), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    created_by = relationship("User")
 
 
 class AuditLog(Base):

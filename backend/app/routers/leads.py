@@ -55,6 +55,8 @@ def list_leads(
     team_id: Optional[int] = None,
     assigned_to_id: Optional[int] = None,
     source: Optional[str] = None,
+    place_area: Optional[str] = None,
+    referred_by: Optional[str] = None,
     search: Optional[str] = None,
     date_from: Optional[dt.date] = None,
     date_to: Optional[dt.date] = None,
@@ -72,11 +74,16 @@ def list_leads(
         q = q.filter(Lead.assigned_to_id == assigned_to_id)
     if source:
         q = q.filter(Lead.source == source)
+    if place_area:
+        q = q.filter(Lead.place_area == place_area)
+    if referred_by:
+        q = q.filter(Lead.referred_by == referred_by)
     if search:
         like = f"%{search}%"
         q = q.filter(or_(
             Lead.first_name.ilike(like), Lead.last_name.ilike(like),
             Lead.email.ilike(like), Lead.phone.ilike(like), Lead.company.ilike(like),
+            Lead.place_area.ilike(like),
         ))
     if date_from:
         q = q.filter(Lead.created_at >= date_from)

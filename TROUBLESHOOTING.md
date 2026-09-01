@@ -1,5 +1,70 @@
 # Troubleshooting
 
+**Start here if the app doesn't seem to be working and you're not
+sure why:**
+
+```bash
+sudo bash deploy/diagnose.sh
+```
+
+It checks PostgreSQL, your `backend/.env` credentials, whether the
+app's schema exists, and the backend service's status in one pass,
+and prints a specific fix for whatever it finds broken. The sections
+below go into more detail on the scenarios it catches.
+
+## Backend crash-loops immediately on startup, even with correct DB credentials
+
+If `backend/.env` contains a key that isn't declared as a `Settings`
+field in `app/config.py` — most notably `FRONTEND_DIR`, which
+`install_ubuntu22.sh` always writes — older versions of this app
+crashed instantly with a `pydantic_core.ValidationError:
+extra_forbidden` the moment `app.config.settings` was imported,
+*before ever reaching the database*. This looked identical to a
+Postgres connection problem (no `users` table, `journalctl` showing
+the backend endlessly restarting) but had nothing to do with
+Postgres at all.
+
+This is fixed as of the version of `app/config.py` that sets
+`model_config = SettingsConfigDict(env_file=".env", extra="ignore")`.
+If you're still seeing crash-loops after confirming Postgres
+credentials are correct (`deploy/diagnose.sh` reports the DB
+connection as OK but the service still won't stay up), check:
+
+```bash
+sudo journalctl -u leadcrm-backend -n 30 --no-pager
+```
+
+A `pydantic_core._pydantic_core.ValidationError` there means you're
+running the old `config.py` — pull the latest code and restart.
+
+## `reset_admin_password.sh` fails with `relation "users" does not exist`
+
+This means the app has **never successfully created its database
+schema** — almost always because the Postgres role's actual password
+doesn't match what's in `backend/.env`, so the backend has been
+crash-looping on startup (SQLAlchemy can't connect, so
+`Base.metadata.create_all()` never runs).
+
+Run the diagnostic script — it checks Postgres, the `.env`
+credentials, whether the schema exists, and the backend service's
+status all in one pass, and prints the specific fix for whatever it
+finds broken:
+
+```bash
+sudo bash deploy/diagnose.sh
+```
+
+The most common fix it will suggest is resyncing the Postgres role's
+password to match what's already in `.env`:
+
+```bash
+sudo -u postgres psql -c "ALTER ROLE leadcrm WITH LOGIN PASSWORD '<password from .env>';"
+sudo systemctl restart leadcrm-backend
+```
+
+Then re-run `deploy/diagnose.sh` to confirm the schema gets created,
+and `deploy/reset_admin_password.sh` to get back into the app.
+
 ## Can't log in with the auto-generated bootstrap password
 
 The bootstrap Super Admin account is only ever created **once** — the
@@ -131,266 +196,3 @@ Check that the "first_name" application field is actually mapped to
 a column in your file — it's the one required field. The import
 preview screen shows a few sample rows so you can confirm the
 mapping looks right before committing.
-
-Excellent — the database schema is now successfully initialized. ✅
-
-You now have all 7 required tables:
-
-audit_logs
-follow_ups
-import_batches
-lead_status_history
-leads
-teams
-users
-
-The original error:
-
-psycopg2.errors.UndefinedTable:
-relation "users" does not exist
-
-is fixed.
-
-Next: create the initial Super Admin
-
-Your application is designed to create the admin automatically when the FastAPI application starts. However, your manual create_all() only created the tables; it did not execute the on_startup() function.
-
-So let's start the backend once.
-
-First check whether a LeadCRM service already exists:
-
-sudo systemctl status leadcrm
-
-If you get:
-
-Unit leadcrm.service could not be found
-
-then check:
-
-sudo systemctl list-units --type=service | grep -i lead
-If you're currently running it manually
-
-You can start it with:
-
-sudo -u leadcrm bash -c 'cd /opt/leadcrm/backend && source venv/bin/activate && python run.py'
-
-You should see Uvicorn start on:
-
-0.0.0.0:8000
-
-and importantly, something similar to:
-
-Bootstrapped initial Super Admin user 'admin'.
-
-Leave that terminal running while we verify it.
-
-Verify the admin was created
-
-Open another SSH terminal and run:
-
-sudo -u postgres psql -d leadcrm -c "SELECT id, username, email, role, is_active FROM users;"
-
-Expected:
-
- id | username |       email       |    role     | is_active
-----+----------+-------------------+-------------+-----------
-  1 | admin    | admin@example.com | super_admin | t
-
-If that appears, your initial database setup is complete.
-
-One important security step
-
-The database password was exposed earlier in the conversation. After we get LeadCRM running, I strongly recommend changing that PostgreSQL password and updating .env.
-
-Also, once the admin login works, change the bootstrap admin password immediately.
-
-For now, run:
-
-sudo systemctl status leadcrm
-
-and paste the output. If there is no systemd service, we'll set up the LeadCRM backend as a proper Ubuntu service so it starts automatically after reboot.
-
-administrator@teams:/opt/leadcrm/backend$ sudo systemctl status leadcrm
-
-Unit leadcrm.service could not be found.
-
-administrator@teams:/opt/leadcrm/backend$ sudo systemctl list-units --type=service | grep -i lead
-
-  leadcrm-backend.service                                                                   loaded active running Lead CRM backend (FastAPI/Uvicorn)
-
-administrator@teams:/opt/leadcrm/backend$ sudo -u leadcrm bash -c 'cd /opt/leadcrm/backend && source venv/bin/activate && python run.py'
-
-INFO:     Started server process [15839]
-
-INFO:     Waiting for application startup.
-
-INFO:     Application startup complete.
-
-ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
-
-INFO:     Waiting for application shutdown.
-
-INFO:     Application shutdown complete.
-
-administrator@teams:/opt/leadcrm/backend$ 
-
-That's actually good news. Your Lead CRM backend is already running as:
-
-leadcrm-backend.service
-
-The address already in use error happened because you tried to start a second copy on port 8000.
-
-1. Check the running service
-
-Run:
-
-sudo systemctl status leadcrm-backend
-
-You should see:
-
-Active: active (running)
-2. The important question: did the running service create the admin?
-
-Because we manually created the tables after the service was already running, the existing process may not have run its startup code against the newly created tables.
-
-The safest approach is to restart the existing service:
-
-sudo systemctl restart leadcrm-backend
-
-Then immediately check:
-
-sudo systemctl status leadcrm-backend
-
-And check its recent logs:
-
-sudo journalctl -u leadcrm-backend -n 50 --no-pager
-
-Look for:
-
-Bootstrapped initial Super Admin user 'admin'
-3. Verify the admin account directly
-
-Run:
-
-sudo -u postgres psql -d leadcrm -c "SELECT id, username, email, role, is_active FROM users;"
-
-If everything worked, you should see something like:
-
- id | username |       email       |    role     | is_active
-----+----------+-------------------+-------------+-----------
-  1 | admin    | admin@example.com | super_admin | t
-4. Test the API
-
-Since your backend listens on port 8000, run:
-
-curl http://127.0.0.1:8000/api/health
-
-Expected:
-
-{"status":"ok","app":"Lead CRM"}
-Don't run python run.py again
-
-From now on, use the existing systemd service:
-
-sudo systemctl restart leadcrm-backend
-sudo systemctl stop leadcrm-backend
-sudo systemctl start leadcrm-backend
-sudo systemctl status leadcrm-backend
-
-This avoids having multiple Uvicorn processes fighting for port 8000.
-
-Run these three commands now:
-
-sudo systemctl restart leadcrm-backend
-sudo journalctl -u leadcrm-backend -n 30 --no-pager
-sudo -u postgres psql -d leadcrm -c "SELECT id, username, email, role, is_active FROM users;"
-
-Paste the output, and we'll verify that the Super Admin was successfully created.
-
- id | username |       email       |    role     | is_active 
-
-----+----------+-------------------+-------------+-----------
-
-  1 | admin    | admin@example.com | super_admin | t
-
-(1 row)
-
-administrator@teams:/opt/leadcrm/backend$ 
-
-Excellent. Lead CRM is now initialized correctly. ✅
-
-The important result is:
-
-id | username |      email       |    role     | is_active
----+----------+------------------+-------------+----------
- 1 | admin    | admin@example.com | super_admin | t
-
-So:
-
-PostgreSQL connection ✅
-Database leadcrm ✅
-All 7 tables created ✅
-users table exists ✅
-Initial Super Admin created ✅
-leadcrm-backend.service restarted successfully ✅
-FastAPI/Uvicorn running under systemd ✅
-1. Verify the API
-
-Run:
-
-curl http://127.0.0.1:8000/api/health
-
-You should get:
-
-{"status":"ok","app":"Lead CRM"}
-2. Verify the service
-sudo systemctl status leadcrm-backend --no-pager
-
-You want:
-
-Active: active (running)
-3. Test from the browser
-
-If your frontend/Nginx is already configured, open your Lead CRM URL in the browser.
-
-If you're accessing the backend directly:
-
-http://YOUR_SERVER_IP:8000/api/health
-
-If your domain is configured through Nginx, use your normal Lead CRM domain.
-
-4. Login
-
-Your initial account is:
-
-Username: admin
-Email:    admin@example.com
-Role:     super_admin
-
-The password is whatever you configured as:
-
-BOOTSTRAP_ADMIN_PASSWORD
-
-in /opt/leadcrm/backend/.env.
-
-Don't paste that password here.
-
-One issue we should address next
-
-Your Uvicorn logs show multiple worker processes:
-
-Started server process [15923]
-Started server process [15924]
-...
-
-That suggests your leadcrm-backend.service is probably configured with multiple workers. That's not necessarily wrong, but we should verify the service configuration before making further changes.
-
-Run:
-
-sudo systemctl cat leadcrm-backend
-
-Also:
-
-curl http://127.0.0.1:8000/api/health
-
-If both are successful, your backend is operational and we can move on to checking the frontend → Nginx → FastAPI connection.

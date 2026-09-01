@@ -42,6 +42,9 @@ leadcrm/
     js/api.js, ui.js, views.js, app.js
   deploy/
     install_ubuntu22.sh   One-shot Ubuntu 22.04 installer (Postgres, venv, systemd, Nginx)
+    migrate.sh                Applies pending schema migrations to an existing install
+    migrations/                  Tracked .sql migration files, applied in order once each
+    diagnose.sh               Checks Postgres/env/schema/service health, suggests fixes
     reset_admin_password.sh  Reset any user's password directly (see Troubleshooting)
     leadcrm-backend.service   systemd unit
     nginx_leadcrm.conf         Nginx reverse-proxy config
@@ -138,8 +141,8 @@ PR to `main` or `dev`: it lints and byte-compiles the backend, starts
 it and checks `/api/health`, syntax-checks the frontend JS, and
 shellchecks the install script.
 
-Locked out or can't log in? `sudo bash deploy/reset_admin_password.sh`
-resets any user's password directly — see `TROUBLESHOOTING.md`.
+Locked out, or the app doesn't seem to be working? Start with
+`sudo bash deploy/diagnose.sh` — see `TROUBLESHOOTING.md`.
 
 ## Data model notes
 
@@ -153,6 +156,34 @@ resets any user's password directly — see `TROUBLESHOOTING.md`.
   than silently duplicated.
 - Every status change, assignment, and import batch writes a row to
   `lead_status_history` / `audit_logs` for traceability.
+- **Place/Area** on a lead is free text (like Company). **Referred By**
+  is a controlled dropdown: its options are managed under Settings
+  (Super Admin / Site Admin only) via `SettingOption` rows grouped by
+  `category` — currently just `referred_by`, but the table is generic
+  so more admin-managed lists can reuse it later without a schema
+  change. Deactivating an option is a soft delete (`is_active=false`)
+  so historical leads keep showing whatever value they were given
+  even after it's removed from the dropdown; re-adding the same value
+  reactivates it instead of erroring.
+
+## Applying schema changes to an existing install
+
+`Base.metadata.create_all()` (run automatically on every backend
+startup) only creates tables that don't exist yet — it never alters a
+table that's already there. Since `leads` already exists on any
+running install, adding columns to it (like `place_area` and
+`referred_by`) needs an explicit migration:
+
+```bash
+sudo bash deploy/migrate.sh
+sudo systemctl restart leadcrm-backend
+```
+
+This applies any `.sql` files under `deploy/migrations/` that haven't
+been applied yet (tracked in a `schema_migrations` table), so it's
+safe to run any time — already-applied migrations are skipped. Brand
+new tables (like `setting_options`) don't need a migration file; the
+next backend restart creates them automatically via `create_all()`.
 
 ## Security notes
 

@@ -88,6 +88,8 @@ class LeadBase(BaseModel):
     phone: Optional[str] = None
     company: Optional[str] = None
     source: Optional[str] = None
+    place_area: Optional[str] = None
+    referred_by: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -104,6 +106,8 @@ class LeadUpdate(BaseModel):
     phone: Optional[str] = None
     company: Optional[str] = None
     source: Optional[str] = None
+    place_area: Optional[str] = None
+    referred_by: Optional[str] = None
     notes: Optional[str] = None
     assigned_to_id: Optional[int] = None
     team_id: Optional[int] = None
@@ -128,6 +132,8 @@ class LeadOut(BaseModel):
     phone: Optional[str] = None
     company: Optional[str] = None
     source: Optional[str] = None
+    place_area: Optional[str] = None
+    referred_by: Optional[str] = None
     status: LeadStatusEnum
     assigned_to_id: Optional[int] = None
     team_id: Optional[int] = None
@@ -198,6 +204,26 @@ class ImportResultOut(BaseModel):
     duplicate_count: int
     error_count: int
     errors: List[Dict[str, Any]] = []
+
+
+# ---------- Settings (admin-managed dropdown options, e.g. Referred By) ----------
+class SettingOptionCreate(BaseModel):
+    category: str
+    value: str
+
+
+class SettingOptionUpdate(BaseModel):
+    value: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class SettingOptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    category: str
+    value: str
+    is_active: bool
+    created_at: dt.datetime
 
 
 # ---------- Reports ----------

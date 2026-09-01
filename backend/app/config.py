@@ -1,10 +1,9 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "Lead CRM"
-    FRONTEND_DIR: str = os.getenv("FRONTEND_DIR", "/opt/leadcrm/frontend")
     ENV: str = os.getenv("ENV", "production")
 
     # Database - defaults to a local SQLite file for quick evaluation.
@@ -25,8 +24,17 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_PASSWORD: str = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "ChangeMe123!")
     BOOTSTRAP_ADMIN_EMAIL: str = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "admin@example.com")
 
-    class Config:
-        env_file = ".env"
+    # NOTE: FRONTEND_DIR is intentionally NOT declared here - main.py reads
+    # it directly via os.getenv() since it's only needed at static-file-mount
+    # time, not as part of app configuration. `extra="ignore"` below is what
+    # actually matters: without it, pydantic-settings treats ANY key present
+    # in .env that isn't declared as a field above as a fatal validation
+    # error and refuses to start the app at all - which is exactly what
+    # happens with the FRONTEND_DIR line that install_ubuntu22.sh writes
+    # into backend/.env. Keep this permissive so unrelated/future keys in
+    # .env never take the whole app down.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 settings = Settings()
+
