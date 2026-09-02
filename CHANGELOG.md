@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.4.1 - Dashboard Donut Charts
+- Replaced dashboard status, team, staff, and product performance bar visualizations with responsive donut charts and clickable legends.
+- Kept dashboard KPI cards, recent leads, and report navigation clickable.
+- Added responsive dashboard donut styling for desktop and mobile layouts.
+
+
 ## v2.4.0 - Dashboard Analytics & Navigation
 - Added dashboard lead-status visualization.
 - Added team performance visualization and summary.

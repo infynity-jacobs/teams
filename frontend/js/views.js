@@ -19,6 +19,39 @@ function dashboardBarRows(rows, labelIndex, valueIndex, options = {}) {
   }).join("") || `<div class="text-muted small py-3">No data available.</div>`;
 }
 
+function dashboardDonut(items, centerLabel = "Total") {
+  const total = items.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  if (!total) return `<div class="text-muted small py-4 text-center">No data available.</div>`;
+  const size = 180, cx = 90, cy = 90, radius = 66, stroke = 24;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const colors = ["#0d6efd", "#6c757d", "#ffc107", "#0dcaf0", "#198754", "#dc3545", "#6f42c1", "#fd7e14", "#20c997", "#d63384"];
+  const segments = items.filter(i => Number(i.value) > 0).map((item, index) => {
+    const value = Number(item.value) || 0;
+    const length = (value / total) * circumference;
+    const segment = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${colors[index % colors.length]}" stroke-width="${stroke}" stroke-dasharray="${length} ${circumference - length}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" />`;
+    offset += length;
+    return segment;
+  }).join("");
+  return `<div class="dashboard-donut-wrap">
+    <div class="dashboard-donut">
+      <svg viewBox="0 0 ${size} ${size}" role="img" aria-label="${escapeHtml(centerLabel)} ${total}">
+        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="currentColor" stroke-opacity=".1" stroke-width="${stroke}" />
+        ${segments}
+      </svg>
+      <div class="dashboard-donut-center"><strong>${escapeHtml(String(total))}</strong><span>${escapeHtml(centerLabel)}</span></div>
+    </div>
+    <div class="dashboard-donut-legend">
+      ${items.filter(i => Number(i.value) > 0).map((item, index) => `<a href="${item.href || '#/leads'}" class="dashboard-donut-legend-item text-decoration-none">
+        <span class="dashboard-donut-dot" style="background:${colors[index % colors.length]}"></span>
+        <span class="text-body text-truncate">${escapeHtml(item.label)}</span>
+        <strong class="text-body ms-auto">${escapeHtml(String(item.value))}</strong>
+      </a>`).join("")}
+    </div>
+  </div>`;
+}
+
+
 Views.dashboard = async function (root) {
   root.innerHTML = `<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>`;
   const results = await Promise.allSettled([
@@ -53,11 +86,8 @@ Views.dashboard = async function (root) {
     ["Lost", stats.by_status.lost || 0, "lost"],
     ["Closed", stats.by_status.closed || 0, "closed"],
   ];
-  const statusMax = Math.max(1, ...statusRows.map(r => r[1]));
-  const statusHtml = statusRows.map(r => `<a class="dashboard-chart-row text-decoration-none" href="${dashboardStatusLink(r[2])}">
-    <div class="d-flex justify-content-between align-items-center small mb-1"><span class="text-body">${r[0]}</span><strong class="text-body">${r[1]}</strong></div>
-    <div class="progress dashboard-progress"><div class="progress-bar" style="width:${Math.max(0,(r[1]/statusMax)*100)}%"></div></div>
-  </a>`).join("");
+  const statusDonutItems = statusRows.map(r => ({ label: r[0], value: r[1], href: dashboardStatusLink(r[2]) }));
+  const statusHtml = dashboardDonut(statusDonutItems, "Leads");
 
   const teamRows = (teamReport.rows || []).filter(r => Number(r[1]) > 0).sort((a,b) => Number(b[1])-Number(a[1]));
   const staffRows = (staffReport.rows || []).filter(r => Number(r[2]) > 0).sort((a,b) => Number(b[8])-Number(a[8]));
@@ -98,8 +128,8 @@ Views.dashboard = async function (root) {
             <a href="#/reports?type=team" class="small">View report &rarr;</a>
           </div>
           <div class="card-body">
-            ${dashboardBarRows(teamRows, 0, 1, {href: () => "#/reports?type=team"})}
-            ${teamRows.length ? teamRows.map(r => `<a class="dashboard-team-row text-decoration-none" href="#/reports?type=team"><span>${escapeHtml(r[0])}</span><span class="small text-muted">${r[1]} leads · ${r[6]} converted · ${r[7]}%</span></a>`).join("") : ""}
+            ${dashboardDonut(teamRows.map(r => ({ label: r[0], value: Number(r[1]) || 0, href: "#/reports?type=team" })), "Team Leads")}
+            ${teamRows.length ? `<div class="small text-muted mt-2">Click a team to open the Team Performance report.</div>` : ""}
           </div>
         </div>
       </div>
@@ -113,11 +143,8 @@ Views.dashboard = async function (root) {
             <a href="#/reports?type=staff" class="small">View report &rarr;</a>
           </div>
           <div class="card-body">
-            ${staffRows.slice(0, 10).map(r => `<a class="dashboard-chart-row text-decoration-none" href="#/reports?type=staff">
-              <div class="d-flex justify-content-between align-items-center small mb-1"><span class="text-body text-truncate me-2">${escapeHtml(r[0])}</span><strong class="text-body">${r[8]}%</strong></div>
-              <div class="progress dashboard-progress"><div class="progress-bar" style="width:${Math.max(0,Math.min(100,Number(r[8])||0))}%"></div></div>
-              <div class="small text-muted mt-1">${r[2]} leads · ${r[6]} converted</div>
-            </a>`).join("") || `<div class="text-muted small py-3">No staff performance data.</div>`}
+            ${dashboardDonut(staffRows.slice(0, 10).map(r => ({ label: r[0], value: Number(r[2]) || 0, href: "#/reports?type=staff" })), "Staff Leads")}
+            ${staffRows.length ? `<div class="small text-muted mt-2">Showing the top ${Math.min(10, staffRows.length)} staff by lead count. Click a name to open the Staff Performance report.</div>` : ""}
           </div>
         </div>
       </div>
@@ -128,11 +155,8 @@ Views.dashboard = async function (root) {
             <a href="#/reports?type=products" class="small">View report &rarr;</a>
           </div>
           <div class="card-body">
-            ${productRows.slice(0, 10).map(r => `<a class="dashboard-chart-row text-decoration-none" href="#/reports?type=products">
-              <div class="d-flex justify-content-between align-items-center small mb-1"><span class="text-body text-truncate me-2">${escapeHtml(r[0])}</span><strong class="text-body">${r[2]}</strong></div>
-              <div class="progress dashboard-progress"><div class="progress-bar" style="width:${Math.max(0,Math.min(100,(Number(r[2]) / Math.max(1,Number(productRows[0][2])))*100))}%"></div></div>
-              <div class="small text-muted mt-1">${r[3]} converted · ${r[4]}% conversion</div>
-            </a>`).join("") || `<div class="text-muted small py-3">No product interest data.</div>`}
+            ${dashboardDonut(productRows.slice(0, 10).map(r => ({ label: r[0], value: Number(r[2]) || 0, href: "#/reports?type=products" })), "Product Leads")}
+            ${productRows.length ? `<div class="small text-muted mt-2">Showing the top ${Math.min(10, productRows.length)} products by interested leads. Click a product to open the Product Performance report.</div>` : ""}
           </div>
         </div>
       </div>
