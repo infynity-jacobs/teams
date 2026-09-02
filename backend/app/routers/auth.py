@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import datetime as dt
 
 from app.database import get_db
-from app.models import User, PasswordResetToken, SystemSetting
+from app.models import User, PasswordResetToken, SystemSetting, RoleEnum
 from app.schemas import Token, UserOut, PasswordResetRequest, PasswordResetConfirm, PasswordChangeRequest
 from app.utils.security import (
     verify_password, hash_password, create_access_token, new_reset_token, hash_reset_token
@@ -115,6 +115,13 @@ def admin_reset_password(user_id: int, request: Request,
                          db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user: raise HTTPException(404, "User not found")
+
+    # Privilege boundary: only Super Admins may reset an admin account.
+    # Site Admins and other non-Super-Admins may not reset Super Admins
+    # (or Site Admins), even though they may have access to user management.
+    if user.role in (RoleEnum.super_admin, RoleEnum.site_admin) and current_user.role != RoleEnum.super_admin:
+        raise HTTPException(403, "Only Super Admins may reset administrator passwords")
+
     raw = new_reset_token()
     row = PasswordResetToken(
         user_id=user.id, token_hash=hash_reset_token(raw),

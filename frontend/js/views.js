@@ -57,6 +57,50 @@ Views.dashboard = async function (root) {
   `;
 };
 
+// ---------------- My Profile ----------------
+Views.profile = async function (root) {
+  const user = await apiFetch("/auth/me");
+  root.innerHTML = `
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        <div class="card shadow-sm">
+          <div class="card-header"><strong><i class="bi bi-person-circle me-1"></i> My Profile</strong></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6"><label class="form-label">Full Name</label><input class="form-control" value="${escapeHtml(user.full_name || "")}" disabled></div>
+              <div class="col-md-6"><label class="form-label">Username</label><input class="form-control" value="${escapeHtml(user.username || "")}" disabled></div>
+              <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" value="${escapeHtml(user.email || "")}" disabled></div>
+              <div class="col-md-6"><label class="form-label">Role</label><input class="form-control" value="${escapeHtml(roleLabel(user.role))}" disabled></div>
+            </div>
+            <hr class="my-4">
+            <h6>Change Password</h6>
+            <p class="text-muted small">Change your own password without administrator access. Your existing session will be signed out after the change.</p>
+            <div id="profile-password-error" class="alert alert-danger d-none"></div>
+            <div class="row g-3">
+              <div class="col-md-6"><label class="form-label">Current Password</label><input type="password" class="form-control" id="profile-current-password" autocomplete="current-password"></div>
+              <div class="col-md-6"><label class="form-label">New Password</label><input type="password" class="form-control" id="profile-new-password" minlength="8" autocomplete="new-password"></div>
+            </div>
+            <button class="btn btn-primary mt-3" id="profile-change-password"><i class="bi bi-key me-1"></i> Change Password</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  qs("#profile-change-password").addEventListener("click", async () => {
+    const current_password = qs("#profile-current-password").value;
+    const new_password = qs("#profile-new-password").value;
+    const err = qs("#profile-password-error");
+    err.classList.add("d-none");
+    if (!current_password || !new_password) { err.textContent = "Enter your current and new password."; err.classList.remove("d-none"); return; }
+    if (new_password.length < 8) { err.textContent = "Password must be at least 8 characters."; err.classList.remove("d-none"); return; }
+    try {
+      await apiFetch("/auth/change-password", {method:"POST", body:{current_password, new_password}});
+      alert("Password changed successfully. Please sign in again.");
+      Auth.clear(); location.hash = "#/login"; location.reload();
+    } catch (e) { err.textContent = e.detail || "Failed to change password."; err.classList.remove("d-none"); }
+  });
+};
+
 // ---------------- Leads List ----------------
 Views.leadsState = { page: 1, filters: {} };
 
@@ -943,7 +987,7 @@ Views.settings = async function (root) {
           <div class="col-md-6"><label class="form-label">Session timeout (minutes)</label><input type="number" min="15" class="form-control" data-setting="session_timeout_minutes" value="${escapeHtml(current.session_timeout_minutes)}"></div>
           <div class="col-md-6"><label class="form-label">Password reset token lifetime (minutes)</label><input type="number" min="5" class="form-control" data-setting="password_reset_expire_minutes" value="${escapeHtml(current.password_reset_expire_minutes)}"></div>
         </div>
-        <hr><button class="btn btn-outline-secondary" id="change-own-password">Change My Password</button>
+        <hr><a class="btn btn-outline-secondary" href="#/profile">Change My Password</a>
       </div></div></div>
       <div class="tab-pane fade" id="audit-tab"><div class="card"><div class="card-body">
         <h6>Audit Logs</h6><p class="text-muted">Review administrative changes, authentication events, password resets, SMTP tests and emailed reports.</p>
@@ -973,16 +1017,6 @@ Views.settings = async function (root) {
     if (!recipient) return;
     try { await apiFetch("/settings/test-email",{method:"POST",body:{recipient}}); showToast("Test email sent"); }
     catch(e){ showToast(e.detail || "SMTP test failed","danger"); }
-  });
-
-  qs("#change-own-password").addEventListener("click", () => {
-    const {modal,el}=openModal(`<div class="modal-header"><h5 class="modal-title">Change Password</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body"><input type="password" class="form-control mb-2" id="cp-current" placeholder="Current password"><input type="password" class="form-control" id="cp-new" placeholder="New password (minimum 8 characters)"><div id="cp-error" class="alert alert-danger mt-2 d-none"></div></div>
-      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="cp-save">Change</button></div>`);
-    qs("#cp-save",el).addEventListener("click",async()=>{
-      try { await apiFetch("/auth/change-password",{method:"POST",body:{current_password:qs("#cp-current",el).value,new_password:qs("#cp-new",el).value}}); modal.hide(); Auth.clear(); location.hash = "#/login"; location.reload(); }
-      catch(e){qs("#cp-error",el).textContent=e.detail||"Failed";qs("#cp-error",el).classList.remove("d-none");}
-    });
   });
 
   // Referred By list retained from the original Settings module.

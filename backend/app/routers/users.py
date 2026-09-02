@@ -73,6 +73,11 @@ def update_user(
     if not user:
         raise HTTPException(404, "User not found")
 
+    # A non-Super-Admin cannot modify an administrator account, including
+    # changing its password, role, email, name, team, or active state.
+    if user.role in (RoleEnum.super_admin, RoleEnum.site_admin) and current_user.role != RoleEnum.super_admin:
+        raise HTTPException(403, "Only Super Admins may modify administrator accounts")
+
     if payload.role in (RoleEnum.super_admin, RoleEnum.site_admin) and current_user.role != RoleEnum.super_admin:
         raise HTTPException(403, "Only Super Admins may assign admin roles")
 
@@ -100,6 +105,10 @@ def deactivate_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
+    if user.role in (RoleEnum.super_admin, RoleEnum.site_admin) and current_user.role != RoleEnum.super_admin:
+        raise HTTPException(403, "Only Super Admins may deactivate administrator accounts")
+    if user.id == current_user.id:
+        raise HTTPException(400, "You cannot deactivate your own account")
     user.is_active = False
     db.commit()
     log_action(db, current_user, "deactivate_user", "user", user.id, request=request)

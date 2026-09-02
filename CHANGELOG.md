@@ -1,3 +1,8 @@
+## 2.0.3
+
+- Fixed administrator-uploaded logo and favicon URLs by adding an Nginx `/uploads/` reverse-proxy location to FastAPI.
+- Added frontend asset versioning to reduce stale-browser cache after upgrades.
+
 # Changelog
 
 All notable changes to this project are documented in this file.
@@ -135,3 +140,10 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - Added password/session invalidation support and expanded audit events.
 - Added safe database migrations and a dedicated existing-install upgrade script.
 - Fixed deployment so `.env` is preserved during upgrades and deployment files/migrations are installed with the application.
+
+## [2.1.0] - 2026-09-02
+
+- Added a My Profile page for every authenticated role with self-service password change.
+- Enforced password-reset privilege hierarchy: only Super Admins may reset Super Admin or Site Admin accounts.
+- Prevented non-Super-Admins from using the administrator reset endpoint against higher-privileged accounts.
+- Removed the admin-only password-change control from Settings in favor of the universal My Profile page.
