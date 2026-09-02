@@ -79,10 +79,9 @@ echo "PostgreSQL is up."
 echo "== 3/8: Creating system user and install directory =="
 id -u leadcrm &>/dev/null || useradd --system --create-home --shell /usr/sbin/nologin leadcrm
 mkdir -p "$INSTALL_DIR"
-rsync -a --delete "$PROJECT_ROOT/backend/" "$INSTALL_DIR/backend/" --exclude venv --exclude '__pycache__' --exclude '*.db'
+rsync -a --delete "$PROJECT_ROOT/backend/" "$INSTALL_DIR/backend/" --exclude venv --exclude '__pycache__' --exclude '*.db' --exclude '.env'
 rsync -a --delete "$PROJECT_ROOT/frontend/" "$INSTALL_DIR/frontend/"
-mkdir -p "$INSTALL_DIR/uploads"
-
+rsync -a "$PROJECT_ROOT/deploy/" "$INSTALL_DIR/deploy/"
 echo "== 4/8: Setting up PostgreSQL database =="
 # Reuse credentials from an existing .env (e.g. from a prior run of this
 # script) so re-running never desyncs the Postgres role's actual password
@@ -133,21 +132,26 @@ CORS_ORIGINS=*
 BOOTSTRAP_ADMIN_USERNAME=admin
 BOOTSTRAP_ADMIN_PASSWORD=${BOOTSTRAP_PASSWORD}
 BOOTSTRAP_ADMIN_EMAIL=admin@example.com
-PASSWORD_RESET_EXPIRE_MINUTES=30
 FRONTEND_DIR=${INSTALL_DIR}/frontend
 UPLOAD_DIR=${INSTALL_DIR}/uploads
+PASSWORD_RESET_EXPIRE_MINUTES=30
 EOF
   chmod 600 "$ENV_FILE"
 fi
 
-echo "== 7/8: Setting file ownership and installing systemd service =="
+echo "== 7/8: Initializing database schema, applying migrations, and starting service =="
 chown -R leadcrm:leadcrm "$INSTALL_DIR"
 cp "$SCRIPT_DIR/leadcrm-backend.service" /etc/systemd/system/leadcrm-backend.service
 systemctl daemon-reload
 systemctl enable leadcrm-backend
+# First start lets SQLAlchemy create the initial schema on a brand-new DB.
+# Migrations are then applied for upgrades/column/index changes and are idempotent.
+systemctl restart leadcrm-backend
+sleep 2
+bash "$INSTALL_DIR/deploy/migrate.sh"
 systemctl restart leadcrm-backend
 
-echo "== 8/8: Configuring Nginx =="
+echo "== 8/8: Installing service and configuring Nginx =="
 if [[ -f /etc/nginx/sites-available/leadcrm ]]; then
   echo "Nginx site already exists at /etc/nginx/sites-available/leadcrm - leaving it untouched"
   echo "(so any server_name/TLS changes you made aren't overwritten)."

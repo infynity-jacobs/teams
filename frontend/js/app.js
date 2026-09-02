@@ -43,6 +43,7 @@ async function loadPublicBranding() {
       link.href = s.favicon_url;
     }
     if (s.primary_color) document.documentElement.style.setProperty("--primary-color", s.primary_color);
+    document.documentElement.setAttribute("data-bs-theme", s.theme === "dark" ? "dark" : "light");
   } catch (_) {}
 }
 
@@ -66,7 +67,9 @@ async function showResetPassword(token) {
     <div class="mb-3"><label class="form-label">Confirm Password</label><input type="password" class="form-control" id="reset-password-confirm" minlength="8" required></div>
     <div id="login-error" class="alert alert-danger py-2 d-none"></div>
     <button class="btn btn-primary w-100">Set Password</button>
+    <button type="button" class="btn btn-link w-100 mt-2" id="reset-back-login">Back to sign in</button>
   `;
+  qs("#reset-back-login")?.addEventListener("click", () => { location.hash = "#/login"; location.reload(); });
   qs("#login-form").onsubmit = async (e) => {
     e.preventDefault();
     const p = qs("#reset-password").value, c = qs("#reset-password-confirm").value;
@@ -81,6 +84,21 @@ async function showResetPassword(token) {
 }
 
 async function router() {
+  const hash = location.hash || "#/dashboard";
+  if (hash.startsWith("#/reset-password")) {
+    const query = hash.includes("?") ? hash.split("?")[1] : "";
+    const token = new URLSearchParams(query).get("token");
+    if (!token) {
+      qs("#login-screen").classList.remove("d-none");
+      qs("#app-shell").classList.add("d-none");
+      const err = qs("#login-error");
+      err.textContent = "Invalid password reset link.";
+      err.classList.remove("d-none");
+      return;
+    }
+    await showResetPassword(token);
+    return;
+  }
 
   if (!Auth.isLoggedIn()) {
     qs("#login-screen").classList.remove("d-none");
@@ -93,7 +111,6 @@ async function router() {
   setActiveNav();
 
   const root = qs("#view-root");
-  const hash = location.hash || "#/dashboard";
   const [, path, param] = hash.split("/");
 
   try {

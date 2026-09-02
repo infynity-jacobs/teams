@@ -737,7 +737,8 @@ Views.reports = async function (root) {
           <button class="btn btn-primary btn-sm" id="run-report-btn"><i class="bi bi-search"></i> Run Report</button>
           <button class="btn btn-outline-secondary btn-sm" id="export-xlsx-btn"><i class="bi bi-file-earmark-excel"></i> Export XLSX</button>
           <button class="btn btn-outline-secondary btn-sm" id="export-pdf-btn"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
-          <button class="btn btn-outline-secondary btn-sm" id="print-btn"><i class="bi bi-printer"></i> Print</button>\n          <button class="btn btn-outline-primary btn-sm" id="email-report-btn"><i class="bi bi-envelope"></i> Email Report</button>
+          <button class="btn btn-outline-secondary btn-sm" id="print-btn"><i class="bi bi-printer"></i> Print</button>
+          <button class="btn btn-outline-primary btn-sm" id="email-report-btn"><i class="bi bi-envelope"></i> Email Report</button>
         </div>
       </div>
     </div>
@@ -957,7 +958,7 @@ Views.settings = async function (root) {
       <div class="modal-body"><input type="password" class="form-control mb-2" id="cp-current" placeholder="Current password"><input type="password" class="form-control" id="cp-new" placeholder="New password (minimum 8 characters)"><div id="cp-error" class="alert alert-danger mt-2 d-none"></div></div>
       <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="cp-save">Change</button></div>`);
     qs("#cp-save",el).addEventListener("click",async()=>{
-      try { await apiFetch("/auth/change-password",{method:"POST",body:{current_password:qs("#cp-current",el).value,new_password:qs("#cp-new",el).value}}); showToast("Password changed"); modal.hide(); }
+      try { await apiFetch("/auth/change-password",{method:"POST",body:{current_password:qs("#cp-current",el).value,new_password:qs("#cp-new",el).value}}); modal.hide(); Auth.clear(); location.hash = "#/login"; location.reload(); }
       catch(e){qs("#cp-error",el).textContent=e.detail||"Failed";qs("#cp-error",el).classList.remove("d-none");}
     });
   });

@@ -1,4 +1,4 @@
-## Unreleased\n- Added comprehensive admin Settings module, SMTP configuration and test email.\n- Added report email delivery with PDF/XLSX attachments and filters.\n- Added secure user password reset/change flows with token expiration, single-use tokens and session invalidation.\n- Added configurable site branding, logo/favicon uploads, theme/color and regional settings.\n- Added lead workflow settings, report/security preferences and settings audit events.\n\n# Changelog
+# Changelog
 
 All notable changes to this project are documented in this file.
 
@@ -125,3 +125,13 @@ and this project follows [Semantic Versioning](https://semver.org/).
   and `.env` template.
 - Project scaffolding: `README.md`, `CONTRIBUTING.md`, `LICENSE`, CI
   workflow, `dev`/`main` branch structure.
+
+## [2.0.0] - 2026-09-02
+
+- Added comprehensive administrator Settings module and site branding.
+- Added encrypted SMTP configuration and SMTP test email.
+- Added report email delivery with PDF/XLSX attachments.
+- Added secure single-use password reset and administrator reset email flow.
+- Added password/session invalidation support and expanded audit events.
+- Added safe database migrations and a dedicated existing-install upgrade script.
+- Fixed deployment so `.env` is preserved during upgrades and deployment files/migrations are installed with the application.

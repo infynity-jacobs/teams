@@ -14,4 +14,3 @@ reportlab==4.2.2
 python-dotenv==1.0.1
 alembic==1.13.2
 email-validator==2.2.0
-cryptography==42.0.8

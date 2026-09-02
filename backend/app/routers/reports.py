@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -216,6 +216,14 @@ def email_report(payload: ReportEmailRequest, request: Request,
                  current_user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
     """Generate a report using the same visibility rules as exports and email it."""
+    allowed_types = {"new", "follow_up", "pending", "converted", "lost", "closed", "all", "staff", "team"}
+    requested = {str(x).lower() for x in payload.attachments}
+    if payload.report_type not in allowed_types:
+        raise HTTPException(400, "Unsupported report type")
+    if not requested or not requested.issubset({"pdf", "xlsx"}):
+        raise HTTPException(400, "Attachments must be PDF and/or XLSX")
+    if not payload.recipients:
+        raise HTTPException(400, "At least one recipient is required")
     if payload.report_type in {"staff", "team"}:
         if payload.report_type == "staff":
             base = _apply_common_filters(_visible_leads_query(db, current_user),
@@ -260,7 +268,6 @@ def email_report(payload: ReportEmailRequest, request: Request,
         title = f"Lead Report: {stage.replace('_', ' ').title()}"
 
     attachments = []
-    requested = {x.lower() for x in payload.attachments}
     if "xlsx" in requested:
         attachments.append(("leadcrm_report.xlsx", build_xlsx(headers, rows, title=title), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
     if "pdf" in requested:

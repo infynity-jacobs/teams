@@ -197,22 +197,20 @@ next backend restart creates them automatically via `create_all()`.
   email-based password resets, and moving `CORS_ORIGINS` from `*` to
   your actual domain.
 
+## Upgrade an existing Ubuntu 22.04 installation
 
-## Settings, SMTP, Email Reports and Password Reset
-
-The application now includes an administrator-controlled Settings module covering site branding, theme/color, regional settings, SMTP configuration, report defaults, security/session preferences, lead workflow options, user/team management links, and audit logs.
-
-SMTP credentials are encrypted at rest using a key derived from `SECRET_KEY`. Administrators can send a test email from Settings. Reports can be generated with filters and emailed as PDF and/or XLSX attachments.
-
-Users can request a password reset from the login page. Reset tokens are single-use, time-limited, stored hashed, and old sessions are invalidated after a password change. Administrators can send reset links from User Management; existing passwords are never displayed.
-
-### Deployment note
-
-Run the database migration after updating an existing installation:
+Copy the complete Lead CRM v2 package to the server and run the upgrade script from its project root:
 
 ```bash
-sudo bash /opt/leadcrm/deploy/migrate.sh
-sudo systemctl restart leadcrm-backend
+sudo bash deploy/upgrade_ubuntu22.sh
 ```
 
-For new installations, the same migration command can be run after the installer completes. The installer creates `/opt/leadcrm/uploads` for site logo/favicon assets.
+The upgrade preserves `backend/.env`, the PostgreSQL database, uploaded branding assets, and an existing Nginx site configuration. It installs the complete `deploy/` directory, updates Python dependencies, applies all pending migrations, and restarts the service. A timestamped `.env` backup is saved under `/var/backups/leadcrm/`.
+
+For a fresh server, use:
+
+```bash
+sudo bash deploy/install_ubuntu22.sh
+```
+
+The installer initializes the SQLAlchemy schema first and then runs the idempotent migrations. It also installs the deployment/migration files into `/opt/leadcrm/deploy/` so future upgrades can be performed on the server without relying on the original source directory.

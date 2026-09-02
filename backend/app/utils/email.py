@@ -67,7 +67,7 @@ def send_password_reset(db: Session, user, token: str, base_url: str = ""):
     site_name = (db.query(SystemSetting).filter(SystemSetting.key == "site_name").first())
     app_name = site_name.value if site_name and site_name.value else "Lead CRM"
     frontend_url = (db.query(SystemSetting).filter(SystemSetting.key == "frontend_url").first())
-    base = (base_url or (frontend_url.value if frontend_url and frontend_url.value else "")).rstrip("/")
+    base = ((frontend_url.value if frontend_url and frontend_url.value else "") or base_url).rstrip("/")
     reset_url = f"{base}/#/reset-password?token={token}" if base else f"/#/reset-password?token={token}"
     subject = f"{app_name} password reset"
     exp_row = db.query(SystemSetting).filter(SystemSetting.key == "password_reset_expire_minutes").first()
