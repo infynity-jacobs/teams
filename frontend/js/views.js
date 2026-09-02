@@ -282,6 +282,18 @@ Views.leadDetail = async function (root, leadId) {
       </div>
 
       <div class="col-lg-8">
+        <div class="card mb-3" id="lead-products-card">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-box-seam me-1"></i> Interested Products</strong>
+            <div class="d-flex gap-2">
+              ${lead.status === "converted" ? '<button class="btn btn-sm btn-outline-success" id="view-conversion-btn"><i class="bi bi-receipt me-1"></i> Conversion</button>' : '<button class="btn btn-sm btn-outline-primary" id="add-lead-product-btn"><i class="bi bi-plus-lg me-1"></i> Add Product</button><button class="btn btn-sm btn-success" id="convert-lead-btn"><i class="bi bi-check-circle me-1"></i> Convert</button>'}
+            </div>
+          </div>
+          <div class="card-body" id="lead-products-body">
+            <div class="text-center py-2"><div class="spinner-border spinner-border-sm"></div></div>
+          </div>
+        </div>
+
         <div class="card mb-3">
           <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <strong>Follow-ups</strong>
@@ -316,6 +328,109 @@ Views.leadDetail = async function (root, leadId) {
       </div>
     </div>
   `;
+
+  async function loadLeadProducts() {
+    const body = qs("#lead-products-body");
+    if (!body) return [];
+    try {
+      const items = await apiFetch(`/leads/${leadId}/products`);
+      if (!items.length) {
+        body.innerHTML = `<p class="text-muted mb-0">No products added to this lead yet.</p>`;
+        return items;
+      }
+      body.innerHTML = `
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead><tr><th>Product</th><th>Qty</th><th>Interest</th><th>Quoted Price</th><th>Notes</th><th class="text-end">Actions</th></tr></thead>
+          <tbody>${items.map(x => `
+            <tr>
+              <td><strong>${escapeHtml(x.product_name || "-")}</strong>${x.sku ? `<div class="small text-muted">${escapeHtml(x.sku)}</div>` : ""}</td>
+              <td>${x.quantity}</td>
+              <td><span class="badge text-bg-${x.interest_status === "quoted" ? "success" : x.interest_status === "not_interested" ? "secondary" : "primary"}">${escapeHtml(x.interest_status || "interested")}</span></td>
+              <td>${x.quoted_price != null ? `${escapeHtml(x.currency || "INR")} ${Number(x.quoted_price).toLocaleString()}` : "-"}</td>
+              <td class="small">${escapeHtml(x.notes || "-")}</td>
+              <td class="text-end"><button class="btn btn-sm btn-outline-danger lead-product-remove" data-id="${x.id}"><i class="bi bi-trash"></i></button></td>
+            </tr>`).join("")}</tbody>
+        </table></div>`;
+      qsa(".lead-product-remove", body).forEach(btn => btn.addEventListener("click", async () => {
+        if (!confirm("Remove this product from the lead?")) return;
+        try { await apiFetch(`/leads/${leadId}/products/${btn.dataset.id}`, {method:"DELETE"}); showToast("Product removed"); await loadLeadProducts(); }
+        catch (e) { showToast(e.detail || "Failed to remove product", "danger"); }
+      }));
+      return items;
+    } catch (e) {
+      body.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(e.detail || "Failed to load products")}</div>`;
+      return [];
+    }
+  }
+
+  await loadLeadProducts();
+
+  qs("#add-lead-product-btn")?.addEventListener("click", async () => {
+    const products = await apiFetch("/products?active_only=true");
+    const {modal, el} = openModal(`
+      <div class="modal-header"><h5 class="modal-title">Add Product to Lead</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="lead-product-form">
+          <div class="mb-2"><label class="form-label">Product *</label><select class="form-select" name="product_id" required><option value="">Select product...</option>${products.map(x => `<option value="${x.id}">${escapeHtml(x.name)}${x.sku ? ` (${escapeHtml(x.sku)})` : ""} — ${escapeHtml(x.currency || "INR")} ${Number(x.price).toLocaleString()}</option>`).join("")}</select></div>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">Quantity *</label><input type="number" class="form-control" name="quantity" min="1" value="1" required></div>
+            <div class="col-6"><label class="form-label">Interest Status</label><select class="form-select" name="interest_status"><option value="interested">Interested</option><option value="quoted">Quoted</option><option value="not_interested">Not Interested</option></select></div>
+          </div>
+          <div class="mb-2 mt-2"><label class="form-label">Quoted Price</label><input type="number" class="form-control" name="quoted_price" min="0" step="1" placeholder="Optional"></div>
+          <div><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="2"></textarea></div>
+          <div id="lead-product-error" class="alert alert-danger py-2 mt-2 d-none"></div>
+        </form>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="lead-product-save-btn">Add Product</button></div>`);
+    qs("#lead-product-save-btn", el).addEventListener("click", async () => {
+      const fd = new FormData(qs("#lead-product-form", el)); const payload = Object.fromEntries(fd.entries());
+      payload.product_id = parseInt(payload.product_id); payload.quantity = parseInt(payload.quantity);
+      if (payload.quoted_price === "") delete payload.quoted_price; else payload.quoted_price = parseInt(payload.quoted_price);
+      try { await apiFetch(`/leads/${leadId}/products`, {method:"POST", body:payload}); showToast("Product added"); modal.hide(); await loadLeadProducts(); }
+      catch (e) { const box=qs("#lead-product-error",el); box.textContent=e.detail||"Failed to add product"; box.classList.remove("d-none"); }
+    });
+  });
+
+  qs("#convert-lead-btn")?.addEventListener("click", async () => {
+    const items = await apiFetch(`/leads/${leadId}/products`);
+    if (!items.length) return showToast("Add at least one product before converting this lead", "warning");
+    const {modal, el} = openModal(`
+      <div class="modal-header"><h5 class="modal-title">Convert Lead</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p class="text-muted small">Review the products and prices that will be recorded on the conversion.</p>
+        <form id="conversion-form">
+          <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Product</th><th style="width:90px">Qty</th><th style="width:140px">Unit Price</th><th style="width:100px">Tax %</th></tr></thead><tbody>
+          ${items.map((x,i) => `<tr><td>${escapeHtml(x.product_name||"-")}${x.sku ? `<div class="small text-muted">${escapeHtml(x.sku)}</div>` : ""}<input type="hidden" name="product_id_${i}" value="${x.product_id}"></td><td><input type="number" class="form-control form-control-sm conv-qty" data-i="${i}" value="${x.quantity}" min="1"></td><td><input type="number" class="form-control form-control-sm conv-price" data-i="${i}" value="${x.quoted_price != null ? x.quoted_price : (x.unit_price || 0)}" min="0" step="1"></td><td><input type="number" class="form-control form-control-sm conv-tax" data-i="${i}" value="0" min="0" step="1"></td></tr>`).join("")}
+          </tbody></table></div>
+          <div class="row g-2 mt-2"><div class="col-md-6"><label class="form-label">Discount</label><input type="number" class="form-control" id="conversion-discount" min="0" value="0" step="1"></div><div class="col-md-6"><label class="form-label">Conversion Date</label><input type="datetime-local" class="form-control" id="conversion-date"></div></div>
+          <div class="mt-2"><label class="form-label">Notes</label><textarea class="form-control" id="conversion-notes" rows="2"></textarea></div>
+          <div id="conversion-error" class="alert alert-danger py-2 mt-2 d-none"></div>
+        </form>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" id="conversion-save-btn">Complete Conversion</button></div>`);
+    qs("#conversion-save-btn", el).addEventListener("click", async () => {
+      const conversionItems = items.map((x,i) => ({ product_id:x.product_id, quantity:parseInt(qs(`.conv-qty[data-i="${i}"]`,el).value), unit_price:parseInt(qs(`.conv-price[data-i="${i}"]`,el).value), tax_percent:parseInt(qs(`.conv-tax[data-i="${i}"]`,el).value) }));
+      const discount = parseInt(qs("#conversion-discount",el).value || "0");
+      const date = qs("#conversion-date",el).value;
+      const payload = {items:conversionItems, discount, notes:qs("#conversion-notes",el).value || null};
+      if (date) payload.conversion_date = new Date(date).toISOString();
+      try { await apiFetch(`/leads/${leadId}/convert`, {method:"POST", body:payload}); showToast("Lead converted successfully"); modal.hide(); location.hash=`#/leads/${leadId}`; router(); }
+      catch (e) { const box=qs("#conversion-error",el); box.textContent=e.detail||"Failed to convert lead"; box.classList.remove("d-none"); }
+    });
+  });
+
+  qs("#view-conversion-btn")?.addEventListener("click", async () => {
+    try {
+      const c = await apiFetch(`/leads/${leadId}/conversion`);
+      const {modal} = openModal(`
+        <div class="modal-header"><h5 class="modal-title">Conversion Details</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="row g-2 mb-3"><div class="col-6"><strong>Date:</strong> ${fmtDateTime(c.conversion_date)}</div><div class="col-6"><strong>Subtotal:</strong> ${Number(c.subtotal).toLocaleString()}</div><div class="col-6"><strong>Discount:</strong> ${Number(c.discount).toLocaleString()}</div><div class="col-6"><strong>Tax:</strong> ${Number(c.tax).toLocaleString()}</div><div class="col-12"><strong>Total:</strong> ${Number(c.total).toLocaleString()}</div></div>
+          ${c.notes ? `<p><strong>Notes:</strong> ${escapeHtml(c.notes)}</p>` : ""}
+          <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Tax</th><th>Line Total</th></tr></thead><tbody>${(c.items||[]).map(i => `<tr><td>${escapeHtml(i.product_name||"-")}</td><td>${i.quantity}</td><td>${Number(i.unit_price).toLocaleString()}</td><td>${i.tax_percent}%</td><td>${Number(i.line_total).toLocaleString()}</td></tr>`).join("")}</tbody></table></div>
+        </div>`);
+    } catch (e) { showToast(e.detail || "Failed to load conversion", "danger"); }
+  });
 
   qs("#status-select").addEventListener("change", (e) => {
     qs("#lost-reason").classList.toggle("d-none", e.target.value !== "lost");

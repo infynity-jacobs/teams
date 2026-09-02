@@ -1,3 +1,9 @@
+## v2.3.2 — Lead Products & Conversion UI
+- Added Interested Products section to lead detail.
+- Added Add Product and Convert Lead workflows.
+- Added conversion details view for converted leads.
+
+
 # v2.3.1 — Products UI Fix
 
 - Fixed the Products navigation error caused by the missing `Views.products` frontend view in the v2.3.0 package.
