@@ -226,6 +226,55 @@ class SettingOptionOut(BaseModel):
     created_at: dt.datetime
 
 
+
+
+# ---------- System Settings / Password Management ----------
+class SystemSettingOut(BaseModel):
+    key: str
+    value: Optional[str] = None
+    is_secret: bool = False
+    updated_at: Optional[dt.datetime] = None
+
+
+class SystemSettingsUpdate(BaseModel):
+    values: Dict[str, Any]
+
+
+class TestEmailRequest(BaseModel):
+    recipient: EmailStr
+
+
+class PasswordResetRequest(BaseModel):
+    identifier: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+class AdminPasswordResetRequest(BaseModel):
+    user_id: int
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ReportEmailRequest(BaseModel):
+    report_type: str
+    recipients: List[EmailStr]
+    date_from: Optional[dt.date] = None
+    date_to: Optional[dt.date] = None
+    team_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    source: Optional[str] = None
+    status: Optional[LeadStatusEnum] = None
+    subject: Optional[str] = None
+    message: Optional[str] = None
+    attachments: List[str] = ["pdf", "xlsx"]
+
 # ---------- Reports ----------
 class ReportFilter(BaseModel):
     date_from: Optional[dt.date] = None

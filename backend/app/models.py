@@ -56,6 +56,7 @@ class User(Base):
     role = Column(Enum(RoleEnum), nullable=False, default=RoleEnum.marketing_staff)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
     is_active = Column(Boolean, default=True)
+    session_version = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=utcnow)
 
     team = relationship("Team", back_populates="members", foreign_keys=[team_id])
@@ -149,6 +150,33 @@ class ImportBatch(Base):
     created_at = Column(DateTime, default=utcnow)
 
     imported_by = relationship("User")
+
+
+class SystemSetting(Base):
+    """Key/value system configuration. Sensitive values are encrypted at rest."""
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(120), unique=True, nullable=False, index=True)
+    value = Column(Text, nullable=True)
+    is_secret = Column(Boolean, default=False, nullable=False)
+    updated_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    updated_by = relationship("User")
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    user = relationship("User")
 
 
 class SettingOption(Base):

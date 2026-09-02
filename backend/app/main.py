@@ -4,6 +4,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from app.config import settings
 from app.database import Base, engine, SessionLocal
@@ -71,4 +72,7 @@ def health():
 # frontend directory directly via Nginx (see deploy/nginx_leadcrm.conf).
 FRONTEND_DIR = os.getenv("FRONTEND_DIR", "/app/frontend")
 if os.path.isdir(FRONTEND_DIR):
+    upload_dir = os.getenv("UPLOAD_DIR", "./uploads")
+    Path(upload_dir).mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

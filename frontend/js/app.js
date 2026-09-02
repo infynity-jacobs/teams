@@ -25,7 +25,63 @@ function setActiveNav() {
   });
 }
 
+async function loadPublicBranding() {
+  try {
+    const s = await apiFetch("/settings/public");
+    document.title = s.site_name || "Lead CRM";
+    const brand = qs(".navbar-brand");
+    if (brand) brand.innerHTML = s.company_logo_url
+      ? `<img src="${escapeHtml(s.company_logo_url)}" style="height:28px;max-width:130px;object-fit:contain" class="me-2">`
+      : `<i class="bi bi-graph-up-arrow me-1"></i>${escapeHtml(s.site_name || "Lead CRM")}`;
+    const loginTitle = qs("#login-site-name");
+    if (loginTitle) loginTitle.textContent = s.site_name || "Lead CRM";
+    const loginBranding = qs("#login-branding");
+    if (loginBranding) loginBranding.textContent = s.login_branding || "Marketing Lead Management";
+    if (s.favicon_url) {
+      let link = qs("#site-favicon");
+      if (!link) { link = document.createElement("link"); link.id = "site-favicon"; link.rel = "icon"; document.head.appendChild(link); }
+      link.href = s.favicon_url;
+    }
+    if (s.primary_color) document.documentElement.style.setProperty("--primary-color", s.primary_color);
+  } catch (_) {}
+}
+
+async function showForgotPassword() {
+  const user = qs("#login-username").value.trim();
+  const identifier = prompt("Enter your registered email address or username:", user);
+  if (!identifier) return;
+  try {
+    await apiFetch("/auth/forgot-password", { method: "POST", body: { identifier } });
+    showToast("If the account exists, a reset email has been sent.");
+  } catch (e) { showToast(e.detail || "Unable to request password reset", "danger"); }
+}
+
+async function showResetPassword(token) {
+  qs("#login-screen").classList.remove("d-none");
+  qs("#app-shell").classList.add("d-none");
+  const title = qs("#login-site-name");
+  if (title) title.textContent = "Set New Password";
+  qs("#login-form").innerHTML = `
+    <div class="mb-3"><label class="form-label">New Password</label><input type="password" class="form-control" id="reset-password" minlength="8" required></div>
+    <div class="mb-3"><label class="form-label">Confirm Password</label><input type="password" class="form-control" id="reset-password-confirm" minlength="8" required></div>
+    <div id="login-error" class="alert alert-danger py-2 d-none"></div>
+    <button class="btn btn-primary w-100">Set Password</button>
+  `;
+  qs("#login-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const p = qs("#reset-password").value, c = qs("#reset-password-confirm").value;
+    if (p !== c) { qs("#login-error").textContent = "Passwords do not match"; qs("#login-error").classList.remove("d-none"); return; }
+    try {
+      await apiFetch("/auth/reset-password", { method: "POST", body: { token, new_password: p } });
+      alert("Password changed successfully. You can now sign in.");
+      location.hash = "#/login";
+      location.reload();
+    } catch (err) { qs("#login-error").textContent = err.detail || "Invalid or expired reset link"; qs("#login-error").classList.remove("d-none"); }
+  };
+}
+
 async function router() {
+
   if (!Auth.isLoggedIn()) {
     qs("#login-screen").classList.remove("d-none");
     qs("#app-shell").classList.add("d-none");
@@ -59,6 +115,8 @@ async function router() {
 window.addEventListener("hashchange", router);
 
 document.addEventListener("DOMContentLoaded", () => {
+  loadPublicBranding();
+
   if (Auth.isLoggedIn()) {
     router();
   } else {
@@ -83,6 +141,8 @@ document.addEventListener("DOMContentLoaded", () => {
       errBox.classList.remove("d-none");
     }
   });
+
+  qs("#forgot-password-btn")?.addEventListener("click", showForgotPassword);
 
   qs("#logout-btn").addEventListener("click", () => {
     Auth.clear();

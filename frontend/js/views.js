@@ -623,12 +623,22 @@ Views.users = async function (root) {
         <td><span class="badge bg-primary-subtle text-primary-emphasis">${roleLabel(u.role)}</span></td>
         <td>${escapeHtml(teamName(u.team_id))}</td>
         <td>${u.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Disabled</span>'}</td>
-        <td class="text-end"><button class="btn btn-sm btn-outline-secondary edit-user" data-id="${u.id}"><i class="bi bi-pencil"></i></button></td>
+        <td class="text-end">
+  <button class="btn btn-sm btn-outline-secondary edit-user" data-id="${u.id}"><i class="bi bi-pencil"></i></button>
+  <button class="btn btn-sm btn-outline-warning reset-user" data-id="${u.id}" title="Send password reset email"><i class="bi bi-key"></i></button>
+</td>
       </tr>`).join("") || `<tr><td colspan="7" class="text-center text-muted py-4">No users yet</td></tr>`;
 
     qsa(".edit-user").forEach(btn => btn.addEventListener("click", () => {
       const u = users.find(x => x.id == btn.dataset.id);
       Views._userFormModal(u, teams);
+    }));
+    qsa(".reset-user").forEach(btn => btn.addEventListener("click", async () => {
+      if (!confirm("Send a password reset email to this user?")) return;
+      try {
+        await apiFetch(`/auth/admin-reset-password?user_id=${btn.dataset.id}`, { method: "POST" });
+        showToast("Password reset email sent");
+      } catch (e) { showToast(e.detail || "Failed to send reset email", "danger"); }
     }));
   };
   load();
@@ -721,12 +731,13 @@ Views.reports = async function (root) {
             <label class="form-label small">Staff</label>
             <select class="form-select form-select-sm" id="rpt-staff"><option value="">Any</option>${buildOptions(staffList, "id", "full_name")}</select>
           </div>
+          <div class="col-md-2"><label class="form-label small">Source</label><input class="form-control form-control-sm" id="rpt-source" placeholder="Any source"></div>
         </div>
         <div class="mt-3 d-flex gap-2">
           <button class="btn btn-primary btn-sm" id="run-report-btn"><i class="bi bi-search"></i> Run Report</button>
           <button class="btn btn-outline-secondary btn-sm" id="export-xlsx-btn"><i class="bi bi-file-earmark-excel"></i> Export XLSX</button>
           <button class="btn btn-outline-secondary btn-sm" id="export-pdf-btn"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
-          <button class="btn btn-outline-secondary btn-sm" id="print-btn"><i class="bi bi-printer"></i> Print</button>
+          <button class="btn btn-outline-secondary btn-sm" id="print-btn"><i class="bi bi-printer"></i> Print</button>\n          <button class="btn btn-outline-primary btn-sm" id="email-report-btn"><i class="bi bi-envelope"></i> Email Report</button>
         </div>
       </div>
     </div>
@@ -737,11 +748,12 @@ Views.reports = async function (root) {
     const type = REPORT_TYPES.find(r => r.key === qs("#rpt-type").value);
     const params = new URLSearchParams(type.params);
     const from = qs("#rpt-from").value, to = qs("#rpt-to").value;
-    const team = qs("#rpt-team").value, staff = qs("#rpt-staff").value;
+    const team = qs("#rpt-team").value, staff = qs("#rpt-staff").value, source = qs("#rpt-source").value.trim();
     if (from) params.set("date_from", from);
     if (to) params.set("date_to", to);
     if (team) params.set("team_id", team);
     if (staff) params.set("staff_id", staff);
+    if (source) params.set("source", source);
     return { type, params };
   };
 
@@ -775,6 +787,35 @@ Views.reports = async function (root) {
   });
 
   qs("#print-btn").addEventListener("click", () => window.print());
+
+  qs("#email-report-btn").addEventListener("click", () => {
+    const { type } = buildParams();
+    const { modal, el } = openModal(`
+      <div class="modal-header"><h5 class="modal-title">Email ${escapeHtml(type.label)}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <label class="form-label small">Recipients (comma separated)</label>
+        <input class="form-control mb-2" id="email-recipients" type="text" placeholder="person@example.com, manager@example.com">
+        <label class="form-label small">Subject</label><input class="form-control mb-2" id="email-subject" value="${escapeHtml(type.label)}">
+        <label class="form-label small">Message</label><textarea class="form-control mb-2" id="email-message" rows="4">Please find the requested report attached.</textarea>
+        <label class="form-label small">Attachments</label>
+        <div><label class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="attach-pdf" checked> PDF</label>
+        <label class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="attach-xlsx" checked> XLSX</label></div>
+        <div id="email-report-error" class="alert alert-danger py-2 mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="send-report-email">Send</button></div>`);
+    qs("#send-report-email", el).addEventListener("click", async () => {
+      const recipients = qs("#email-recipients", el).value.split(",").map(x=>x.trim()).filter(Boolean);
+      const attachments=[]; if(qs("#attach-pdf",el).checked) attachments.push("pdf"); if(qs("#attach-xlsx",el).checked) attachments.push("xlsx");
+      const err=qs("#email-report-error",el);
+      if(!recipients.length || !attachments.length){err.textContent="Enter at least one recipient and select an attachment.";err.classList.remove("d-none");return;}
+      const {params}=buildParams();
+      const body={report_type:type.key,recipients,date_from:params.get("date_from")||null,date_to:params.get("date_to")||null,
+        team_id:params.get("team_id")?parseInt(params.get("team_id")):null,staff_id:params.get("staff_id")?parseInt(params.get("staff_id")):null,
+        source:params.get("source")||null, subject:qs("#email-subject",el).value,message:qs("#email-message",el).value,attachments};
+      try{await apiFetch("/reports/email",{method:"POST",body});showToast("Report emailed successfully");modal.hide();}
+      catch(e){err.textContent=e.detail||"Failed to email report";err.classList.remove("d-none");}
+    });
+  });
 };
 
 // ---------------- Audit Log ----------------
@@ -802,94 +843,136 @@ Views.audit = async function (root) {
     </tr>`).join("") || `<tr><td colspan="6" class="text-center text-muted py-4">No audit entries</td></tr>`;
 };
 
-// ---------------- Settings (admin-managed dropdown lists, e.g. Referred By) ----------------
+// ---------------- Settings ----------------
 Views.settings = async function (root) {
+  const current = await apiFetch("/settings/system");
   root.innerHTML = `
-    <h4 class="mb-3">Settings</h4>
-    <div class="card">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <div>
-          <strong>Referred By</strong>
-          <div class="text-muted small">Values available in the "Referred By" dropdown when creating or editing a lead.</div>
-        </div>
-        <button class="btn btn-primary btn-sm" id="new-option-btn"><i class="bi bi-plus-lg"></i> Add Value</button>
-      </div>
-      <div class="card-body">
-        <div class="form-check form-switch mb-2">
-          <input class="form-check-input" type="checkbox" id="show-inactive">
-          <label class="form-check-label small" for="show-inactive">Show deactivated values</label>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light"><tr><th>Value</th><th>Status</th><th>Added</th><th></th></tr></thead>
-            <tbody id="options-tbody"><tr><td colspan="4" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
-          </table>
-        </div>
-      </div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0">Settings</h4>
+      <button class="btn btn-primary btn-sm" id="settings-save"><i class="bi bi-check-lg"></i> Save Changes</button>
     </div>
-  `;
-
-  const CATEGORY = "referred_by";
-
-  const load = async () => {
-    const includeInactive = qs("#show-inactive").checked;
-    const options = await apiFetch(`/settings/options?category=${CATEGORY}&include_inactive=${includeInactive}`);
-    qs("#options-tbody").innerHTML = options.map(o => `
-      <tr>
-        <td>${escapeHtml(o.value)}</td>
-        <td>${o.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Deactivated</span>'}</td>
-        <td class="small text-muted">${fmtDate(o.created_at)}</td>
-        <td class="text-end">
-          ${o.is_active
-            ? `<button class="btn btn-sm btn-outline-danger deactivate-option" data-id="${o.id}"><i class="bi bi-slash-circle"></i> Deactivate</button>`
-            : `<button class="btn btn-sm btn-outline-success reactivate-option" data-value="${escapeHtml(o.value)}"><i class="bi bi-arrow-counterclockwise"></i> Reactivate</button>`}
-        </td>
-      </tr>`).join("") || `<tr><td colspan="4" class="text-center text-muted py-4">No values yet - add one to populate the lead form's dropdown.</td></tr>`;
-
-    qsa(".deactivate-option").forEach(btn => btn.addEventListener("click", async () => {
-      try {
-        await apiFetch(`/settings/options/${btn.dataset.id}`, { method: "DELETE" });
-        showToast("Value deactivated");
-        load();
-      } catch (e) { showToast(e.detail || "Failed to deactivate", "danger"); }
-    }));
-    qsa(".reactivate-option").forEach(btn => btn.addEventListener("click", async () => {
-      try {
-        await apiFetch("/settings/options", { method: "POST", body: { category: CATEGORY, value: btn.dataset.value } });
-        showToast("Value reactivated");
-        load();
-      } catch (e) { showToast(e.detail || "Failed to reactivate", "danger"); }
-    }));
-  };
-  load();
-
-  qs("#show-inactive").addEventListener("change", load);
-
-  qs("#new-option-btn").addEventListener("click", () => {
-    const { modal, el } = openModal(`
-      <div class="modal-header"><h5 class="modal-title">Add "Referred By" Value</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <form id="option-form">
-          <label class="form-label small">Value</label>
-          <input class="form-control" name="value" required placeholder="e.g. Existing Customer, Trade Show, Google Ads">
-        </form>
-        <div id="option-form-error" class="alert alert-danger py-2 mt-2 d-none"></div>
+    <ul class="nav nav-tabs mb-3" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#site-tab">Site Customization</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#smtp-tab">SMTP / Email</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#users-tab">User & Role</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#teams-tab">Teams</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#workflow-tab">Lead Workflow</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#reports-tab">Report Settings</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#security-tab">Security</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#audit-tab">Audit Logs</button></li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="site-tab">
+        <div class="card"><div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Site/Application Name</label><input class="form-control" data-setting="site_name" value="${escapeHtml(current.site_name)}"></div>
+            <div class="col-md-6"><label class="form-label">Company Name</label><input class="form-control" data-setting="company_name" value="${escapeHtml(current.company_name)}"></div>
+            <div class="col-md-6"><label class="form-label">Contact Email</label><input type="email" class="form-control" data-setting="contact_email" value="${escapeHtml(current.contact_email)}"></div>
+            <div class="col-md-6"><label class="form-label">Contact Phone</label><input class="form-control" data-setting="contact_phone" value="${escapeHtml(current.contact_phone)}"></div>
+            <div class="col-12"><label class="form-label">Company Address</label><textarea class="form-control" rows="2" data-setting="company_address">${escapeHtml(current.company_address)}</textarea></div>
+            <div class="col-md-4"><label class="form-label">Primary Color</label><input type="color" class="form-control form-control-color" data-setting="primary_color" value="${escapeHtml(current.primary_color || "#0d6efd")}"></div>
+            <div class="col-md-4"><label class="form-label">Theme</label><select class="form-select" data-setting="theme"><option value="light" ${current.theme==="light"?"selected":""}>Light</option><option value="dark" ${current.theme==="dark"?"selected":""}>Dark</option></select></div>
+            <div class="col-md-4"><label class="form-label">Locale</label><input class="form-control" data-setting="locale" value="${escapeHtml(current.locale)}"></div>
+            <div class="col-md-6"><label class="form-label">Timezone</label><input class="form-control" data-setting="timezone" value="${escapeHtml(current.timezone)}"></div>
+            <div class="col-md-6"><label class="form-label">Date Format</label><input class="form-control" data-setting="date_format" value="${escapeHtml(current.date_format)}"></div>
+            <div class="col-12"><label class="form-label">Login Page Branding Text</label><input class="form-control" data-setting="login_branding" value="${escapeHtml(current.login_branding)}"></div>
+          </div>
+          <hr><div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Logo</label><input type="file" class="form-control" id="logo-upload" accept=".png,.jpg,.jpeg,.webp,.svg"></div>
+            <div class="col-md-6"><label class="form-label">Favicon</label><input type="file" class="form-control" id="favicon-upload" accept=".png,.jpg,.jpeg,.ico,.svg"></div>
+          </div>
+        </div></div>
       </div>
-      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="option-save-btn">Add</button></div>
-    `);
-    qs("#option-save-btn", el).addEventListener("click", async () => {
-      const value = qs("#option-form", el).value.value.trim();
-      if (!value) return;
-      try {
-        await apiFetch("/settings/options", { method: "POST", body: { category: CATEGORY, value } });
-        showToast("Value added");
-        modal.hide();
-        load();
-      } catch (e) {
-        const box = qs("#option-form-error", el);
-        box.textContent = e.detail || "Failed to add value";
-        box.classList.remove("d-none");
+      <div class="tab-pane fade" id="smtp-tab"><div class="card"><div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">SMTP Server / Host</label><input class="form-control" data-setting="smtp_host" value="${escapeHtml(current.smtp_host)}"></div>
+          <div class="col-md-2"><label class="form-label">Port</label><input type="number" class="form-control" data-setting="smtp_port" value="${escapeHtml(current.smtp_port)}"></div>
+          <div class="col-md-4"><label class="form-label">Security</label><select class="form-select" data-setting="smtp_security"><option value="starttls" ${current.smtp_security==="starttls"?"selected":""}>STARTTLS</option><option value="ssl" ${current.smtp_security==="ssl"?"selected":""}>SSL/TLS</option><option value="none" ${current.smtp_security==="none"?"selected":""}>None</option></select></div>
+          <div class="col-md-6"><label class="form-label">SMTP Username</label><input class="form-control" data-setting="smtp_username" value="${escapeHtml(current.smtp_username)}"></div>
+          <div class="col-md-6"><label class="form-label">SMTP Password</label><input type="password" class="form-control" data-setting="smtp_password" placeholder="${current.smtp_password==="********"?"Saved — leave blank to keep it":"Enter password"}"></div>
+          <div class="col-md-6"><label class="form-label">Sender Email</label><input type="email" class="form-control" data-setting="smtp_sender_email" value="${escapeHtml(current.smtp_sender_email)}"></div>
+          <div class="col-md-6"><label class="form-label">Sender / Display Name</label><input class="form-control" data-setting="smtp_sender_name" value="${escapeHtml(current.smtp_sender_name)}"></div>
+          <div class="col-md-8"><label class="form-label">Frontend URL (used in password reset links)</label><input class="form-control" data-setting="frontend_url" value="${escapeHtml(current.frontend_url)}" placeholder="https://crm.example.com"></div>
+          <div class="col-md-4 d-flex align-items-end"><button class="btn btn-outline-primary w-100" id="smtp-test">Send Test Email</button></div>
+        </div>
+        <div class="alert alert-info mt-3 mb-0 small">SMTP passwords are encrypted at rest and are never returned to the browser.</div>
+      </div></div></div>
+      <div class="tab-pane fade" id="users-tab"><div class="card"><div class="card-body">
+        <h6>User & Role Settings</h6><p class="text-muted">Manage Super Admin, Site Admin, Marketing Manager, Team Leader and Marketing Staff accounts and permissions.</p>
+        <a href="#/users" class="btn btn-outline-primary">Open User Management</a>
+      </div></div></div>
+      <div class="tab-pane fade" id="teams-tab"><div class="card"><div class="card-body">
+        <h6>Team Settings</h6><p class="text-muted">Create teams, assign team leaders and manage team membership.</p>
+        <a href="#/teams" class="btn btn-outline-primary">Open Team Management</a>
+      </div></div></div>
+      <div class="tab-pane fade" id="workflow-tab"><div class="card"><div class="card-body">
+        <h6>Lead Status / Workflow Settings</h6><p class="text-muted">The standard workflow is New → Contacted → Follow-up → Pending → Converted/Lost → Closed. The active status list below controls which statuses are offered in lead forms.</p>
+        <div id="workflow-options" class="row g-2"></div>
+      </div></div></div>
+      <div class="tab-pane fade" id="reports-tab"><div class="card"><div class="card-body">
+        <h6>Report Settings</h6><div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Default report format</label><select class="form-select" data-setting="default_report_format"><option value="pdf">PDF</option><option value="xlsx">XLSX</option><option value="both">PDF + XLSX</option></select></div>
+          <div class="col-md-6"><label class="form-label">Email report footer</label><input class="form-control" data-setting="report_email_footer" value="${escapeHtml(current.report_email_footer || "")}"></div>
+        </div>
+      </div></div></div>
+      <div class="tab-pane fade" id="security-tab"><div class="card"><div class="card-body">
+        <h6>Security Settings</h6><div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Session timeout (minutes)</label><input type="number" min="15" class="form-control" data-setting="session_timeout_minutes" value="${escapeHtml(current.session_timeout_minutes)}"></div>
+          <div class="col-md-6"><label class="form-label">Password reset token lifetime (minutes)</label><input type="number" min="5" class="form-control" data-setting="password_reset_expire_minutes" value="${escapeHtml(current.password_reset_expire_minutes)}"></div>
+        </div>
+        <hr><button class="btn btn-outline-secondary" id="change-own-password">Change My Password</button>
+      </div></div></div>
+      <div class="tab-pane fade" id="audit-tab"><div class="card"><div class="card-body">
+        <h6>Audit Logs</h6><p class="text-muted">Review administrative changes, authentication events, password resets, SMTP tests and emailed reports.</p>
+        <a href="#/audit" class="btn btn-outline-primary">Open Audit Log</a>
+      </div></div></div>
+    </div>`;
+
+  const collect = () => {
+    const values = {};
+    qsa("[data-setting]", root).forEach(el => values[el.dataset.setting] = el.value);
+    return values;
+  };
+  qs("#settings-save").addEventListener("click", async () => {
+    try {
+      await apiFetch("/settings/system", {method:"PUT", body:{values:collect()}});
+      for (const [kind,id] of [["logo","logo-upload"],["favicon","favicon-upload"]]) {
+        const file = qs("#"+id).files[0];
+        if (file) { const fd=new FormData(); fd.append("file",file); await apiFetch("/settings/upload?kind="+kind,{method:"POST",body:fd,isForm:true}); }
       }
+      showToast("Settings saved");
+      await loadPublicBranding();
+    } catch(e) { showToast(e.detail || "Failed to save settings", "danger"); }
+  });
+
+  qs("#smtp-test").addEventListener("click", async () => {
+    const recipient = prompt("Send test email to:", current.contact_email || "");
+    if (!recipient) return;
+    try { await apiFetch("/settings/test-email",{method:"POST",body:{recipient}}); showToast("Test email sent"); }
+    catch(e){ showToast(e.detail || "SMTP test failed","danger"); }
+  });
+
+  qs("#change-own-password").addEventListener("click", () => {
+    const {modal,el}=openModal(`<div class="modal-header"><h5 class="modal-title">Change Password</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><input type="password" class="form-control mb-2" id="cp-current" placeholder="Current password"><input type="password" class="form-control" id="cp-new" placeholder="New password (minimum 8 characters)"><div id="cp-error" class="alert alert-danger mt-2 d-none"></div></div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="cp-save">Change</button></div>`);
+    qs("#cp-save",el).addEventListener("click",async()=>{
+      try { await apiFetch("/auth/change-password",{method:"POST",body:{current_password:qs("#cp-current",el).value,new_password:qs("#cp-new",el).value}}); showToast("Password changed"); modal.hide(); }
+      catch(e){qs("#cp-error",el).textContent=e.detail||"Failed";qs("#cp-error",el).classList.remove("d-none");}
     });
   });
+
+  const workflow = await apiFetch("/settings/options?category=lead_status&include_inactive=true");
+  qs("#workflow-options").innerHTML = STATUS_OPTIONS.map(st => {
+    const o=workflow.find(x=>x.value===st);
+    return `<div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input workflow-status" type="checkbox" value="${st}" ${!o || o.is_active ? "checked":""}><label class="form-check-label">${st.replace("_"," ")}</label></div></div>`;
+  }).join("");
+  // Seed/update workflow options from this screen.
+  qsa(".workflow-status").forEach(cb=>cb.addEventListener("change",async()=>{
+    try {
+      if(cb.checked) await apiFetch("/settings/options",{method:"POST",body:{category:"lead_status",value:cb.value}});
+      else { const o=workflow.find(x=>x.value===cb.value); if(o) await apiFetch(`/settings/options/${o.id}`,{method:"DELETE"}); }
+      showToast("Workflow updated");
+    } catch(e){ showToast(e.detail||"Workflow update failed","danger"); cb.checked=!cb.checked; }
+  }));
 };

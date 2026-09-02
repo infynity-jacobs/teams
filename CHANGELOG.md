@@ -1,4 +1,4 @@
-# Changelog
+## Unreleased\n- Added comprehensive admin Settings module, SMTP configuration and test email.\n- Added report email delivery with PDF/XLSX attachments and filters.\n- Added secure user password reset/change flows with token expiration, single-use tokens and session invalidation.\n- Added configurable site branding, logo/favicon uploads, theme/color and regional settings.\n- Added lead workflow settings, report/security preferences and settings audit events.\n\n# Changelog
 
 All notable changes to this project are documented in this file.
 

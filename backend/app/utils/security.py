@@ -31,3 +31,33 @@ def decode_access_token(token: str) -> Optional[dict]:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
+
+
+import hashlib
+import secrets
+from cryptography.fernet import Fernet, InvalidToken
+
+
+def _fernet():
+    key = hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    import base64
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def encrypt_secret(value: str) -> str:
+    return _fernet().encrypt(value.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_secret(value: str) -> Optional[str]:
+    try:
+        return _fernet().decrypt(value.encode("utf-8")).decode("utf-8")
+    except (InvalidToken, ValueError, TypeError):
+        return None
+
+
+def new_reset_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

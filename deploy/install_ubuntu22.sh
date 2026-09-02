@@ -81,6 +81,7 @@ id -u leadcrm &>/dev/null || useradd --system --create-home --shell /usr/sbin/no
 mkdir -p "$INSTALL_DIR"
 rsync -a --delete "$PROJECT_ROOT/backend/" "$INSTALL_DIR/backend/" --exclude venv --exclude '__pycache__' --exclude '*.db'
 rsync -a --delete "$PROJECT_ROOT/frontend/" "$INSTALL_DIR/frontend/"
+mkdir -p "$INSTALL_DIR/uploads"
 
 echo "== 4/8: Setting up PostgreSQL database =="
 # Reuse credentials from an existing .env (e.g. from a prior run of this
@@ -132,7 +133,9 @@ CORS_ORIGINS=*
 BOOTSTRAP_ADMIN_USERNAME=admin
 BOOTSTRAP_ADMIN_PASSWORD=${BOOTSTRAP_PASSWORD}
 BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+PASSWORD_RESET_EXPIRE_MINUTES=30
 FRONTEND_DIR=${INSTALL_DIR}/frontend
+UPLOAD_DIR=${INSTALL_DIR}/uploads
 EOF
   chmod 600 "$ENV_FILE"
 fi

@@ -1,4 +1,4 @@
-body { background: #f4f6f9; }
+:root { --primary-color: #0d6efd; }\n.btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); }\n.text-primary { color: var(--primary-color) !important; }\nbody { background: #f4f6f9; }
 .login-card { width: 380px; }
 .stat-card { border: none; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 .stat-card .stat-value { font-size: 1.8rem; font-weight: 700; }
