@@ -1,3 +1,10 @@
+
+## v2.2.0
+- Added Team and Assigned To selectors to the lead create/edit form.
+- Team selection dynamically filters Marketing Staff assignees.
+- Team Leaders are restricted to their own team in the lead form and backend.
+- Added backend validation preventing assignment of leads to non-Marketing-Staff users or staff outside the selected team.
+- Bumped frontend cache version to 2.2.0.
 ## 2.0.3
 
 - Fixed administrator-uploaded logo and favicon URLs by adding an Nginx `/uploads/` reverse-proxy location to FastAPI.

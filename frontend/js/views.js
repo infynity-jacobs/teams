@@ -384,8 +384,20 @@ Views.leadDetail = async function (root, leadId) {
 
 Views._leadFormModal = async function (lead, teams, staffList) {
   const isEdit = !!lead;
+  const user = Auth.getUser();
+  const canAssign = ["super_admin", "site_admin", "marketing_manager", "team_leader"].includes(user.role);
+  // Team Leaders are restricted to their own team; higher roles may select any team.
+  const availableTeams = user.role === "team_leader"
+    ? teams.filter(t => t.id === user.team_id)
+    : teams;
   let referralOptions = [];
-  try { referralOptions = await apiFetch("/settings/options?category=referred_by"); } catch (e) { /* non-fatal - dropdown just stays empty */ }
+  try { referralOptions = await apiFetch("/settings/options?category=referred_by"); } catch (e) { /* non-fatal */ }
+
+  const selectedTeamId = lead?.team_id ?? (user.role === "team_leader" ? user.team_id : null);
+  let currentStaff = staffList || [];
+  if (canAssign && selectedTeamId) {
+    try { currentStaff = await apiFetch(`/users?role=marketing_staff&team_id=${selectedTeamId}`); } catch (e) { currentStaff = []; }
+  }
 
   const { modal, el } = openModal(`
     <div class="modal-header"><h5 class="modal-title">${isEdit ? "Edit Lead" : "New Lead"}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -407,6 +419,21 @@ Views._leadFormModal = async function (lead, teams, staffList) {
               ${lead?.referred_by && !referralOptions.some(o => o.value === lead.referred_by) ? `<option value="${escapeHtml(lead.referred_by)}" selected>${escapeHtml(lead.referred_by)} (inactive)</option>` : ""}
             </select>
           </div>
+          ${canAssign ? `
+          <div class="col-6">
+            <label class="form-label small">Team</label>
+            <select class="form-select" name="team_id" id="lead-team-select">
+              <option value="">-- No Team --</option>
+              ${buildOptions(availableTeams, "id", "name", selectedTeamId)}
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Assigned To</label>
+            <select class="form-select" name="assigned_to_id" id="lead-assignee-select">
+              <option value="">-- Unassigned --</option>
+              ${buildOptions(currentStaff, "id", "full_name", lead?.assigned_to_id)}
+            </select>
+          </div>` : ""}
           <div class="col-12"><label class="form-label small">Notes</label><textarea class="form-control" name="notes" rows="2">${escapeHtml(lead?.notes || "")}</textarea></div>
         </div>
         <div id="lead-form-error" class="alert alert-danger py-2 mt-2 d-none"></div>
@@ -415,11 +442,30 @@ Views._leadFormModal = async function (lead, teams, staffList) {
     <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="lead-save-btn">Save</button></div>
   `);
 
+  // Keep the assignee list synchronized with the selected team.
+  if (canAssign) {
+    const teamSelect = qs("#lead-team-select", el);
+    const assigneeSelect = qs("#lead-assignee-select", el);
+    teamSelect?.addEventListener("change", async () => {
+      const teamId = teamSelect.value;
+      assigneeSelect.innerHTML = `<option value="">-- Unassigned --</option>`;
+      if (!teamId) return;
+      try {
+        const staff = await apiFetch(`/users?role=marketing_staff&team_id=${parseInt(teamId)}`);
+        assigneeSelect.innerHTML = `<option value="">-- Unassigned --</option>${buildOptions(staff, "id", "full_name", null)}`;
+      } catch (e) {
+        showToast(e.detail || "Failed to load team members", "danger");
+      }
+    });
+  }
+
   qs("#lead-save-btn", el).addEventListener("click", async () => {
     const form = qs("#lead-form", el);
     const fd = new FormData(form);
     const payload = Object.fromEntries(fd.entries());
     Object.keys(payload).forEach(k => { if (payload[k] === "") delete payload[k]; });
+    if (payload.team_id) payload.team_id = parseInt(payload.team_id);
+    if (payload.assigned_to_id) payload.assigned_to_id = parseInt(payload.assigned_to_id);
     try {
       if (isEdit) {
         await apiFetch(`/leads/${lead.id}`, { method: "PUT", body: payload });

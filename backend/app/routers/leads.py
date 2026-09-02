@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.database import get_db
-from app.models import Lead, User, RoleEnum, LeadStatusHistory, FollowUp, LeadStatusEnum
+from app.models import Lead, User, Team, RoleEnum, LeadStatusHistory, FollowUp, LeadStatusEnum
 from app.schemas import (
     LeadCreate, LeadUpdate, LeadOut, LeadListOut, LeadStatusChange, LeadAssign,
     LeadDetailOut, FollowUpCreate, FollowUpOut,
@@ -169,9 +169,35 @@ def update_lead(
     _check_visibility(current_user, lead)
 
     data = payload.dict(exclude_unset=True)
-    # Only leaders and above may reassign / re-team via this endpoint
+    # Only leaders and above may reassign / re-team via this endpoint.
     if ("assigned_to_id" in data or "team_id" in data) and current_user.role not in LEADERS_UP:
         raise HTTPException(403, "Only Team Leaders and above may reassign leads")
+
+    # Validate the resulting team/assignee combination server-side so the UI
+    # cannot be bypassed with an inconsistent assignment.
+    if "assigned_to_id" in data and data["assigned_to_id"] is not None:
+        staff = db.query(User).filter(User.id == data["assigned_to_id"]).first()
+        if not staff:
+            raise HTTPException(404, "Staff member not found")
+        if staff.role != RoleEnum.marketing_staff:
+            raise HTTPException(400, "Leads can only be assigned to Marketing Staff")
+        target_team_id = data.get("team_id", lead.team_id)
+        if target_team_id is not None and staff.team_id != target_team_id:
+            raise HTTPException(400, "Assigned staff member must belong to the selected team")
+        if current_user.role == RoleEnum.team_leader and staff.team_id != current_user.team_id:
+            raise HTTPException(403, "Can only assign to members of your own team")
+
+    if "team_id" in data and data["team_id"] is not None:
+        team = db.query(Team).filter(Team.id == data["team_id"], Team.is_active == True).first()
+        if not team:
+            raise HTTPException(404, "Team not found or inactive")
+        if current_user.role == RoleEnum.team_leader and team.id != current_user.team_id:
+            raise HTTPException(403, "Can only assign leads to your own team")
+        existing_assignee_id = data.get("assigned_to_id", lead.assigned_to_id)
+        if existing_assignee_id is not None:
+            staff = db.query(User).filter(User.id == existing_assignee_id).first()
+            if not staff or staff.team_id != team.id:
+                raise HTTPException(400, "Assigned staff member must belong to the selected team")
 
     for field, value in data.items():
         setattr(lead, field, value)
@@ -196,6 +222,8 @@ def assign_lead(
     staff = db.query(User).filter(User.id == payload.assigned_to_id).first()
     if not staff:
         raise HTTPException(404, "Staff member not found")
+    if staff.role != RoleEnum.marketing_staff:
+        raise HTTPException(400, "Leads can only be assigned to Marketing Staff")
     if current_user.role == RoleEnum.team_leader and staff.team_id != current_user.team_id:
         raise HTTPException(403, "Can only assign to members of your own team")
 
