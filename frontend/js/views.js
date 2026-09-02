@@ -858,6 +858,7 @@ Views.settings = async function (root) {
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#users-tab">User & Role</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#teams-tab">Teams</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#workflow-tab">Lead Workflow</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#referred-tab">Referred By</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#reports-tab">Report Settings</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#security-tab">Security</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#audit-tab">Audit Logs</button></li>
@@ -910,6 +911,27 @@ Views.settings = async function (root) {
         <h6>Lead Status / Workflow Settings</h6><p class="text-muted">The standard workflow is New → Contacted → Follow-up → Pending → Converted/Lost → Closed. The active status list below controls which statuses are offered in lead forms.</p>
         <div id="workflow-options" class="row g-2"></div>
       </div></div></div>
+      <div class="tab-pane fade" id="referred-tab"><div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Referred By</strong>
+            <div class="text-muted small">Values available in the "Referred By" dropdown when creating or editing a lead.</div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="new-option-btn"><i class="bi bi-plus-lg"></i> Add Value</button>
+        </div>
+        <div class="card-body">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="show-inactive">
+            <label class="form-check-label small" for="show-inactive">Show deactivated values</label>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light"><tr><th>Value</th><th>Status</th><th>Added</th><th></th></tr></thead>
+              <tbody id="options-tbody"><tr><td colspan="4" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div></div>
       <div class="tab-pane fade" id="reports-tab"><div class="card"><div class="card-body">
         <h6>Report Settings</h6><div class="row g-3">
           <div class="col-md-6"><label class="form-label">Default report format</label><select class="form-select" data-setting="default_report_format"><option value="pdf">PDF</option><option value="xlsx">XLSX</option><option value="both">PDF + XLSX</option></select></div>
@@ -962,6 +984,69 @@ Views.settings = async function (root) {
       catch(e){qs("#cp-error",el).textContent=e.detail||"Failed";qs("#cp-error",el).classList.remove("d-none");}
     });
   });
+
+  // Referred By list retained from the original Settings module.
+  const CATEGORY = "referred_by";
+  const loadReferredBy = async () => {
+    const includeInactive = qs("#show-inactive").checked;
+    const options = await apiFetch(`/settings/options?category=${CATEGORY}&include_inactive=${includeInactive}`);
+    qs("#options-tbody").innerHTML = options.map(o => `
+      <tr>
+        <td>${escapeHtml(o.value)}</td>
+        <td>${o.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Deactivated</span>'}</td>
+        <td class="small text-muted">${fmtDate(o.created_at)}</td>
+        <td class="text-end">
+          ${o.is_active
+            ? `<button class="btn btn-sm btn-outline-danger deactivate-option" data-id="${o.id}"><i class="bi bi-slash-circle"></i> Deactivate</button>`
+            : `<button class="btn btn-sm btn-outline-success reactivate-option" data-value="${escapeHtml(o.value)}"><i class="bi bi-arrow-counterclockwise"></i> Reactivate</button>`}
+        </td>
+      </tr>`).join("") || `<tr><td colspan="4" class="text-center text-muted py-4">No values yet - add one to populate the lead form's dropdown.</td></tr>`;
+
+    qsa(".deactivate-option").forEach(btn => btn.addEventListener("click", async () => {
+      try {
+        await apiFetch(`/settings/options/${btn.dataset.id}`, { method: "DELETE" });
+        showToast("Value deactivated");
+        await loadReferredBy();
+      } catch (e) { showToast(e.detail || "Failed to deactivate", "danger"); }
+    }));
+    qsa(".reactivate-option").forEach(btn => btn.addEventListener("click", async () => {
+      try {
+        await apiFetch("/settings/options", { method: "POST", body: { category: CATEGORY, value: btn.dataset.value } });
+        showToast("Value reactivated");
+        await loadReferredBy();
+      } catch (e) { showToast(e.detail || "Failed to reactivate", "danger"); }
+    }));
+  };
+
+  qs("#show-inactive").addEventListener("change", loadReferredBy);
+  qs("#new-option-btn").addEventListener("click", () => {
+    const { modal, el } = openModal(`
+      <div class="modal-header"><h5 class="modal-title">Add "Referred By" Value</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="option-form">
+          <label class="form-label small">Value</label>
+          <input class="form-control" name="value" required placeholder="e.g. Existing Customer, Trade Show, Google Ads">
+        </form>
+        <div id="option-form-error" class="alert alert-danger py-2 mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="option-save-btn">Add</button></div>
+    `);
+    qs("#option-save-btn", el).addEventListener("click", async () => {
+      const value = qs("#option-form", el).value.value.trim();
+      if (!value) return;
+      try {
+        await apiFetch("/settings/options", { method: "POST", body: { category: CATEGORY, value } });
+        showToast("Value added");
+        modal.hide();
+        await loadReferredBy();
+      } catch (e) {
+        const box = qs("#option-form-error", el);
+        box.textContent = e.detail || "Failed to add value";
+        box.classList.remove("d-none");
+      }
+    });
+  });
+  await loadReferredBy();
 
   const workflow = await apiFetch("/settings/options?category=lead_status&include_inactive=true");
   qs("#workflow-options").innerHTML = STATUS_OPTIONS.map(st => {
