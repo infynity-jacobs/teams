@@ -1,44 +1,15 @@
-## v2.3.3 - Conversion Re-conversion Fix
-
-- Allow a lead moved back from Converted to be converted again.
-- Reuse the existing conversion record and replace its current items/totals on re-conversion.
-- Clear `converted_at` when a converted lead is moved to another status.
-
-## v2.3.2 — Lead Products & Conversion UI
-- Added Interested Products section to lead detail.
-- Added Add Product and Convert Lead workflows.
-- Added conversion details view for converted leads.
-
-
-# v2.3.1 — Products UI Fix
-
-- Fixed the Products navigation error caused by the missing `Views.products` frontend view in the v2.3.0 package.
-- Added the product catalogue UI with search, category/status filters, product create/edit, and category management.
-- Bumped frontend asset cache version to 2.3.1.
-
-# v2.3.0 — Products & Conversion
-
-- Added product catalogue and product categories.
-- Added products to leads with quantities, interest status, quoted price and notes.
-- Added conversion workflow with price/tax/discount snapshots.
-- Added product performance reports with PDF/XLSX export and email support.
-- Added demo product catalogue to migration (safe ON CONFLICT seed).
-- Added product and conversion navigation/UI.
-- Added database migration 0003_products_conversion.sql.
-
-
-## v2.2.0
-- Added Team and Assigned To selectors to the lead create/edit form.
-- Team selection dynamically filters Marketing Staff assignees.
-- Team Leaders are restricted to their own team in the lead form and backend.
-- Added backend validation preventing assignment of leads to non-Marketing-Staff users or staff outside the selected team.
-- Bumped frontend cache version to 2.2.0.
-## 2.0.3
-
-- Fixed administrator-uploaded logo and favicon URLs by adding an Nginx `/uploads/` reverse-proxy location to FastAPI.
-- Added frontend asset versioning to reduce stale-browser cache after upgrades.
-
 # Changelog
+
+## v2.4.0 - Dashboard Analytics & Navigation
+- Added dashboard lead-status visualization.
+- Added team performance visualization and summary.
+- Added staff performance visualization.
+- Added product performance visualization linked to the Product Performance report.
+- Made dashboard KPI cards clickable.
+- Made dashboard chart rows and recent leads clickable.
+- Added dashboard deep links into lead filters and reports.
+- Added report deep-linking via `#/reports?type=...`.
+
 
 All notable changes to this project are documented in this file.
 

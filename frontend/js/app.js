@@ -113,10 +113,13 @@ async function router() {
   setActiveNav();
 
   const root = qs("#view-root");
-  const [, path, param] = hash.split("/");
+  const hashPath = hash.slice(1).split("?")[0];
+  const parts = hashPath.split("/").filter(Boolean);
+  const path = parts[0] || "dashboard";
+  const param = parts[1];
 
   try {
-    if (!path || path === "dashboard") await Views.dashboard(root);
+    if (path === "dashboard") await Views.dashboard(root);
     else if (path === "profile") await Views.profile(root);
     else if (path === "leads" && !param) await Views.leads(root);
     else if (path === "leads" && param) await Views.leadDetail(root, param);

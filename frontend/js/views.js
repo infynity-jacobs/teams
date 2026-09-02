@@ -1,21 +1,67 @@
 const Views = {};
 
 // ---------------- Dashboard ----------------
+function dashboardStatusLink(status) {
+  return status ? `#/leads?status=${encodeURIComponent(status)}` : "#/leads";
+}
+
+function dashboardBarRows(rows, labelIndex, valueIndex, options = {}) {
+  const max = Math.max(1, ...rows.map(r => Number(r[valueIndex]) || 0));
+  return rows.map(r => {
+    const label = String(r[labelIndex] ?? "-");
+    const value = Number(r[valueIndex]) || 0;
+    const href = options.href ? options.href(r) : "#/leads";
+    const width = Math.max(0, Math.min(100, (value / max) * 100));
+    return `<a class="dashboard-chart-row text-decoration-none" href="${href}">
+      <div class="d-flex justify-content-between align-items-center small mb-1"><span class="text-body text-truncate me-2">${escapeHtml(label)}</span><strong class="text-body">${escapeHtml(String(value))}</strong></div>
+      <div class="progress dashboard-progress" role="progressbar" aria-valuenow="${value}" aria-valuemin="0" aria-valuemax="${max}"><div class="progress-bar" style="width:${width}%"></div></div>
+    </a>`;
+  }).join("") || `<div class="text-muted small py-3">No data available.</div>`;
+}
+
 Views.dashboard = async function (root) {
   root.innerHTML = `<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>`;
-  const [stats, myLeads] = await Promise.all([
+  const results = await Promise.allSettled([
     apiFetch("/reports/conversion-stats"),
     apiFetch("/leads?page=1&page_size=5"),
+    apiFetch("/reports/team-performance"),
+    apiFetch("/reports/staff-performance"),
+    apiFetch("/reports/products"),
   ]);
+  const value = (i, fallback) => results[i].status === "fulfilled" ? results[i].value : fallback;
+  const stats = value(0, { total_leads: 0, by_status: {}, conversion_rate: 0 });
+  const myLeads = value(1, { items: [], total: 0 });
+  const teamReport = value(2, { rows: [] });
+  const staffReport = value(3, { rows: [] });
+  const productReport = value(4, { rows: [] });
 
   const cards = [
-    { label: "Total Leads", value: stats.total_leads, icon: "bi-people", color: "primary" },
-    { label: "New", value: stats.by_status.new || 0, icon: "bi-star", color: "secondary" },
-    { label: "In Follow-up", value: stats.by_status.follow_up || 0, icon: "bi-telephone-outbound", color: "warning" },
-    { label: "Converted", value: stats.by_status.converted || 0, icon: "bi-check-circle", color: "success" },
-    { label: "Lost", value: stats.by_status.lost || 0, icon: "bi-x-circle", color: "danger" },
-    { label: "Conversion Rate", value: stats.conversion_rate + "%", icon: "bi-graph-up", color: "info" },
+    { label: "Total Leads", value: stats.total_leads, icon: "bi-people", color: "primary", href: "#/leads" },
+    { label: "New", value: stats.by_status.new || 0, icon: "bi-star", color: "secondary", href: dashboardStatusLink("new") },
+    { label: "In Follow-up", value: stats.by_status.follow_up || 0, icon: "bi-telephone-outbound", color: "warning", href: dashboardStatusLink("follow_up") },
+    { label: "Converted", value: stats.by_status.converted || 0, icon: "bi-check-circle", color: "success", href: dashboardStatusLink("converted") },
+    { label: "Lost", value: stats.by_status.lost || 0, icon: "bi-x-circle", color: "danger", href: dashboardStatusLink("lost") },
+    { label: "Conversion Rate", value: stats.conversion_rate + "%", icon: "bi-graph-up", color: "info", href: "#/reports?type=converted" },
   ];
+
+  const statusRows = [
+    ["New", stats.by_status.new || 0, "new"],
+    ["Contacted", stats.by_status.contacted || 0, "contacted"],
+    ["Follow-up", stats.by_status.follow_up || 0, "follow_up"],
+    ["Pending", stats.by_status.pending || 0, "pending"],
+    ["Converted", stats.by_status.converted || 0, "converted"],
+    ["Lost", stats.by_status.lost || 0, "lost"],
+    ["Closed", stats.by_status.closed || 0, "closed"],
+  ];
+  const statusMax = Math.max(1, ...statusRows.map(r => r[1]));
+  const statusHtml = statusRows.map(r => `<a class="dashboard-chart-row text-decoration-none" href="${dashboardStatusLink(r[2])}">
+    <div class="d-flex justify-content-between align-items-center small mb-1"><span class="text-body">${r[0]}</span><strong class="text-body">${r[1]}</strong></div>
+    <div class="progress dashboard-progress"><div class="progress-bar" style="width:${Math.max(0,(r[1]/statusMax)*100)}%"></div></div>
+  </a>`).join("");
+
+  const teamRows = (teamReport.rows || []).filter(r => Number(r[1]) > 0).sort((a,b) => Number(b[1])-Number(a[1]));
+  const staffRows = (staffReport.rows || []).filter(r => Number(r[2]) > 0).sort((a,b) => Number(b[8])-Number(a[8]));
+  const productRows = (productReport.rows || []).filter(r => Number(r[2]) > 0).sort((a,b) => Number(b[2])-Number(a[2]));
 
   root.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -25,14 +71,74 @@ Views.dashboard = async function (root) {
     <div class="row g-3 mb-4">
       ${cards.map(c => `
         <div class="col-6 col-md-4 col-lg-2">
-          <div class="card stat-card p-3 h-100">
-            <i class="bi ${c.icon} text-${c.color} fs-4"></i>
-            <div class="stat-value mt-2">${c.value}</div>
-            <div class="text-muted small">${c.label}</div>
-          </div>
+          <a href="${c.href}" class="text-decoration-none text-reset d-block h-100 dashboard-clickable">
+            <div class="card stat-card p-3 h-100">
+              <i class="bi ${c.icon} text-${c.color} fs-4"></i>
+              <div class="stat-value mt-2">${escapeHtml(String(c.value))}</div>
+              <div class="text-muted small">${c.label}</div>
+            </div>
+          </a>
         </div>`).join("")}
     </div>
-    <div class="card">
+
+    <div class="row g-3 mb-4">
+      <div class="col-xl-6">
+        <div class="card h-100 dashboard-card">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-pie-chart me-1"></i> Lead Status</strong>
+            <a href="#/leads" class="small">View leads &rarr;</a>
+          </div>
+          <div class="card-body">${statusHtml}</div>
+        </div>
+      </div>
+      <div class="col-xl-6">
+        <div class="card h-100 dashboard-card">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-diagram-3 me-1"></i> Team Performance</strong>
+            <a href="#/reports?type=team" class="small">View report &rarr;</a>
+          </div>
+          <div class="card-body">
+            ${dashboardBarRows(teamRows, 0, 1, {href: () => "#/reports?type=team"})}
+            ${teamRows.length ? teamRows.map(r => `<a class="dashboard-team-row text-decoration-none" href="#/reports?type=team"><span>${escapeHtml(r[0])}</span><span class="small text-muted">${r[1]} leads · ${r[6]} converted · ${r[7]}%</span></a>`).join("") : ""}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-xl-6">
+        <div class="card h-100 dashboard-card">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-person-check me-1"></i> Staff Performance</strong>
+            <a href="#/reports?type=staff" class="small">View report &rarr;</a>
+          </div>
+          <div class="card-body">
+            ${staffRows.slice(0, 10).map(r => `<a class="dashboard-chart-row text-decoration-none" href="#/reports?type=staff">
+              <div class="d-flex justify-content-between align-items-center small mb-1"><span class="text-body text-truncate me-2">${escapeHtml(r[0])}</span><strong class="text-body">${r[8]}%</strong></div>
+              <div class="progress dashboard-progress"><div class="progress-bar" style="width:${Math.max(0,Math.min(100,Number(r[8])||0))}%"></div></div>
+              <div class="small text-muted mt-1">${r[2]} leads · ${r[6]} converted</div>
+            </a>`).join("") || `<div class="text-muted small py-3">No staff performance data.</div>`}
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-6">
+        <div class="card h-100 dashboard-card">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-box-seam me-1"></i> Product Performance</strong>
+            <a href="#/reports?type=products" class="small">View report &rarr;</a>
+          </div>
+          <div class="card-body">
+            ${productRows.slice(0, 10).map(r => `<a class="dashboard-chart-row text-decoration-none" href="#/reports?type=products">
+              <div class="d-flex justify-content-between align-items-center small mb-1"><span class="text-body text-truncate me-2">${escapeHtml(r[0])}</span><strong class="text-body">${r[2]}</strong></div>
+              <div class="progress dashboard-progress"><div class="progress-bar" style="width:${Math.max(0,Math.min(100,(Number(r[2]) / Math.max(1,Number(productRows[0][2])))*100))}%"></div></div>
+              <div class="small text-muted mt-1">${r[3]} converted · ${r[4]}% conversion</div>
+            </a>`).join("") || `<div class="text-muted small py-3">No product interest data.</div>`}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card dashboard-card">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <strong>Recent Leads</strong>
         <a href="#/leads" class="small">View all &rarr;</a>
@@ -149,6 +255,12 @@ Views.leads = async function (root) {
     </div>
   `;
 
+  const leadQuery = new URLSearchParams((location.hash.split("?")[1] || ""));
+  ["search", "status", "team_id", "assigned_to_id", "date_from", "date_to"].forEach((key, i) => {
+    const ids = ["f-search", "f-status", "f-team", "f-staff", "f-from", "f-to"];
+    const v = leadQuery.get(key);
+    if (v && qs("#" + ids[i])) qs("#" + ids[i]).value = v;
+  });
   const reload = () => Views._loadLeadsTable(1);
   ["f-search", "f-status", "f-team", "f-staff", "f-from", "f-to"].forEach(id => {
     qs("#" + id).addEventListener("change", reload);
@@ -1138,6 +1250,10 @@ Views.reports = async function (root) {
     return { type, params };
   };
 
+  const reportQuery = new URLSearchParams((location.hash.split("?")[1] || ""));
+  const requestedType = reportQuery.get("type");
+  if (requestedType && REPORT_TYPES.some(r => r.key === requestedType)) qs("#rpt-type").value = requestedType;
+
   qs("#run-report-btn").addEventListener("click", async () => {
     const { type, params } = buildParams();
     const out = qs("#report-output");
@@ -1197,6 +1313,8 @@ Views.reports = async function (root) {
       catch(e){err.textContent=e.detail||"Failed to email report";err.classList.remove("d-none");}
     });
   });
+
+  if (requestedType && REPORT_TYPES.some(r => r.key === requestedType)) qs("#run-report-btn").click();
 };
 
 // ---------------- Audit Log ----------------

@@ -24,3 +24,14 @@ table.table td, table.table th { vertical-align: middle; }
   nav, .no-print { display: none !important; }
   #view-root { max-width: 100%; }
 }
+
+.dashboard-clickable .stat-card, .dashboard-chart-row, .dashboard-team-row { transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease; }
+.dashboard-clickable:hover .stat-card, .dashboard-chart-row:hover, .dashboard-team-row:hover { transform: translateY(-1px); }
+.dashboard-clickable:hover .stat-card { box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.dashboard-card { border-radius: 12px; }
+.dashboard-chart-row { display:block; padding: .45rem .25rem; border-radius: 8px; }
+.dashboard-chart-row:hover { background: rgba(0,0,0,.035); }
+.dashboard-progress { height: 8px; }
+.dashboard-team-row { display:flex; justify-content:space-between; gap:1rem; padding:.45rem .25rem; margin-top:.15rem; color:inherit; border-radius:8px; }
+.dashboard-team-row:hover { background:rgba(0,0,0,.035); }
+[data-bs-theme="dark"] .dashboard-chart-row:hover, [data-bs-theme="dark"] .dashboard-team-row:hover { background:rgba(255,255,255,.06); }
