@@ -60,6 +60,7 @@ Views.dashboard = async function (root) {
     apiFetch("/reports/team-performance"),
     apiFetch("/reports/staff-performance"),
     apiFetch("/reports/products"),
+    apiFetch("/reports/follow-ups"),
   ]);
   const value = (i, fallback) => results[i].status === "fulfilled" ? results[i].value : fallback;
   const stats = value(0, { total_leads: 0, by_status: {}, conversion_rate: 0 });
@@ -67,6 +68,7 @@ Views.dashboard = async function (root) {
   const teamReport = value(2, { rows: [] });
   const staffReport = value(3, { rows: [] });
   const productReport = value(4, { rows: [] });
+  const followUps = value(5, { counts: { overdue: 0, today: 0, upcoming: 0, completed_today: 0 }, overdue: [], today: [], upcoming: [] });
 
   const cards = [
     { label: "Total Leads", value: stats.total_leads, icon: "bi-people", color: "primary", href: "#/leads" },
@@ -109,6 +111,26 @@ Views.dashboard = async function (root) {
             </div>
           </a>
         </div>`).join("")}
+    </div>
+
+    <div class="row g-3 mb-4">
+      ${[
+        {label:"Overdue Follow-ups", value:followUps.counts.overdue, icon:"bi-exclamation-triangle", color:"danger", href:"#/follow-ups?filter=overdue"},
+        {label:"Today's Follow-ups", value:followUps.counts.today, icon:"bi-calendar-event", color:"warning", href:"#/follow-ups?filter=today"},
+        {label:"Upcoming Follow-ups", value:followUps.counts.upcoming, icon:"bi-calendar-check", color:"primary", href:"#/follow-ups?filter=upcoming"},
+        {label:"Completed Today", value:followUps.counts.completed_today, icon:"bi-check2-all", color:"success", href:"#/follow-ups?filter=completed"},
+      ].map(c => `<div class="col-6 col-md-3"><a href="${c.href}" class="text-decoration-none text-reset d-block h-100 dashboard-clickable"><div class="card stat-card p-3 h-100"><i class="bi ${c.icon} text-${c.color} fs-4"></i><div class="stat-value mt-2">${escapeHtml(String(c.value))}</div><div class="text-muted small">${c.label}</div></div></a></div>`).join("")}
+    </div>
+
+    <div class="card dashboard-card mb-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-calendar2-week me-1"></i> Follow-up Queue</strong>
+        <a href="#/leads?status=follow_up" class="small">View follow-up leads &rarr;</a>
+      </div>
+      <div class="table-responsive"><table class="table table-hover mb-0">
+        <thead class="table-light"><tr><th>When</th><th>Lead</th><th>Type</th><th>Assigned To</th><th>Status</th></tr></thead>
+        <tbody>${followUps.overdue.concat(followUps.today).slice(0,10).map(f => `<tr class="clickable-row" onclick="location.hash='#/leads/${f.lead_id}'"><td>${fmtDateTime(f.scheduled_at)}</td><td><strong>${escapeHtml(f.lead_name)}</strong><div class="small text-muted">${escapeHtml(f.company || "")}</div></td><td class="text-capitalize">${escapeHtml(f.follow_up_type)}</td><td>${escapeHtml(f.staff_name || "Unassigned")}</td><td>${statusBadge(f.status)}</td></tr>`).join("") || `<tr><td colspan="5" class="text-center text-muted py-3">No follow-ups due today.</td></tr>`}</tbody>
+      </table></div>
     </div>
 
     <div class="row g-3 mb-4">
@@ -185,6 +207,23 @@ Views.dashboard = async function (root) {
       </div>
     </div>
   `;
+};
+
+
+// ---------------- Follow-up Queue ----------------
+Views.followups = async function (root) {
+  root.innerHTML = `<div class="d-flex justify-content-center py-5"><div class="spinner-border text-primary"></div></div>`;
+  const data = await apiFetch("/reports/follow-ups");
+  const sections = [
+    ["Overdue", data.overdue || [], "danger"],
+    ["Today", data.today || [], "warning"],
+    ["Upcoming", data.upcoming || [], "primary"],
+  ];
+  const rows = items => items.map(f => `<tr class="clickable-row" onclick="location.hash='#/leads/${f.lead_id}'"><td>${fmtDateTime(f.scheduled_at)}</td><td><strong>${escapeHtml(f.lead_name)}</strong><div class="small text-muted">${escapeHtml(f.company || "")}</div></td><td class="text-capitalize">${escapeHtml(f.follow_up_type)}</td><td>${escapeHtml(f.staff_name || "Unassigned")}</td><td>${statusBadge(f.status)}</td><td><button class="btn btn-sm btn-outline-success complete-queue-followup" data-lead="${f.lead_id}" data-id="${f.id}" onclick="event.stopPropagation()"><i class="bi bi-check2"></i> Complete</button></td></tr>`).join("") || `<tr><td colspan="6" class="text-center text-muted py-4">None</td></tr>`;
+  root.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-4"><div><h4 class="mb-1">Follow-up Queue</h4><div class="text-muted small">Track overdue, today's and upcoming customer actions.</div></div><a href="#/leads?status=follow_up" class="btn btn-outline-primary btn-sm">Follow-up Leads</a></div>
+    <div class="row g-3 mb-4">${[["Overdue",data.counts.overdue,"danger","bi-exclamation-triangle"],["Today",data.counts.today,"warning","bi-calendar-event"],["Upcoming",data.counts.upcoming,"primary","bi-calendar-check"],["Completed Today",data.counts.completed_today,"success","bi-check2-all"]].map(x=>`<div class="col-6 col-md-3"><div class="card stat-card p-3 h-100"><i class="bi ${x[3]} text-${x[2]} fs-4"></i><div class="stat-value mt-2">${x[1]}</div><div class="text-muted small">${x[0]}</div></div></div>`).join("")}</div>
+    ${sections.map(sec=>`<div class="card mb-4"><div class="card-header bg-white"><strong><i class="bi bi-calendar2-week me-1"></i>${sec[0]} Follow-ups</strong></div><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>When</th><th>Lead</th><th>Type</th><th>Assigned To</th><th>Lead Status</th><th>Action</th></tr></thead><tbody>${rows(sec[1])}</tbody></table></div></div>`).join("")}`;
+  qsa(".complete-queue-followup").forEach(btn=>btn.addEventListener("click",async()=>{try{await apiFetch(`/leads/${btn.dataset.lead}/follow-ups/${btn.dataset.id}`,{method:"PUT",body:{completed_at:new Date().toISOString()}});showToast("Follow-up completed");Views.followups(root);}catch(e){showToast(e.detail||"Failed to complete follow-up","danger");}}));
 };
 
 // ---------------- My Profile ----------------
@@ -438,10 +477,11 @@ Views.leadDetail = async function (root, leadId) {
           <div class="card-body">
             ${lead.follow_ups.length ? lead.follow_ups.map(f => `
               <div class="timeline-item">
-                <div class="d-flex justify-content-between">
-                  <strong class="text-capitalize">${escapeHtml(f.follow_up_type)}</strong>
-                  <span class="text-muted small">${fmtDateTime(f.created_at)}</span>
+                <div class="d-flex justify-content-between align-items-start">
+                  <div><strong class="text-capitalize">${escapeHtml(f.follow_up_type)}</strong> ${f.completed_at ? '<span class="badge bg-success ms-1">Completed</span>' : (f.scheduled_at && new Date(f.scheduled_at) < new Date() ? '<span class="badge bg-danger ms-1">Overdue</span>' : '')}</div>
+                  <div class="d-flex gap-1"><button class="btn btn-sm btn-outline-secondary edit-followup-btn" data-id="${f.id}"><i class="bi bi-pencil"></i></button>${!f.completed_at ? `<button class="btn btn-sm btn-outline-success complete-followup-btn" data-id="${f.id}"><i class="bi bi-check2"></i></button>` : ""}</div>
                 </div>
+                <div class="small text-muted">Created: ${fmtDateTime(f.created_at)}${f.scheduled_at ? ` · Scheduled: ${fmtDateTime(f.scheduled_at)}` : ""}${f.completed_at ? ` · Completed: ${fmtDateTime(f.completed_at)}` : ""}</div>
                 ${f.outcome ? `<div class="small text-muted">Outcome: ${escapeHtml(f.outcome)}</div>` : ""}
                 ${f.notes ? `<div class="small">${escapeHtml(f.notes)}</div>` : ""}
               </div>`).join("") : `<p class="text-muted mb-0">No follow-ups logged yet.</p>`}
@@ -568,6 +608,19 @@ Views.leadDetail = async function (root, leadId) {
     } catch (e) { showToast(e.detail || "Failed to load conversion", "danger"); }
   });
 
+  qsa(".complete-followup-btn").forEach(btn => btn.addEventListener("click", async () => {
+    try { await apiFetch(`/leads/${leadId}/follow-ups/${btn.dataset.id}`, {method:"PUT", body:{completed_at:new Date().toISOString()}}); showToast("Follow-up completed"); router(); }
+    catch(e) { showToast(e.detail || "Failed to complete follow-up", "danger"); }
+  }));
+
+  qsa(".edit-followup-btn").forEach(btn => btn.addEventListener("click", () => {
+    const f = lead.follow_ups.find(x => String(x.id) === String(btn.dataset.id));
+    if (!f) return;
+    const {modal, el} = openModal(`<div class="modal-header"><h5 class="modal-title">Edit Follow-up</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="edit-followup-form"><div class="mb-2"><label class="form-label small">Type</label><select class="form-select" name="follow_up_type"><option value="call">Call</option><option value="email">Email</option><option value="meeting">Meeting</option><option value="other">Other</option></select></div><div class="mb-2"><label class="form-label small">Scheduled Date & Time</label><input type="datetime-local" class="form-control" name="scheduled_at"></div><div class="mb-2"><label class="form-label small">Outcome</label><input class="form-control" name="outcome"></div><div class="mb-2"><label class="form-label small">Notes</label><textarea class="form-control" name="notes" rows="3"></textarea></div></form><div id="edit-followup-error" class="alert alert-danger d-none"></div></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="edit-followup-save">Save</button></div>`);
+    qs('[name="follow_up_type"]',el).value=f.follow_up_type || "call"; if(f.scheduled_at) qs('[name="scheduled_at"]',el).value=new Date(f.scheduled_at).toISOString().slice(0,16); qs('[name="outcome"]',el).value=f.outcome||""; qs('[name="notes"]',el).value=f.notes||"";
+    qs("#edit-followup-save",el).addEventListener("click",async()=>{const fd=new FormData(qs("#edit-followup-form",el)); const payload=Object.fromEntries(fd.entries()); if(payload.scheduled_at) payload.scheduled_at=new Date(payload.scheduled_at).toISOString(); else delete payload.scheduled_at; try{await apiFetch(`/leads/${leadId}/follow-ups/${f.id}`,{method:"PUT",body:payload}); showToast("Follow-up updated"); modal.hide(); router();}catch(e){const box=qs("#edit-followup-error",el);box.textContent=e.detail||"Failed to update follow-up";box.classList.remove("d-none");}});
+  }));
+
   qs("#status-select").addEventListener("change", (e) => {
     qs("#lost-reason").classList.toggle("d-none", e.target.value !== "lost");
   });
@@ -614,6 +667,7 @@ Views.leadDetail = async function (root, leadId) {
               <option value="meeting">Meeting</option><option value="other">Other</option>
             </select>
           </div>
+          <div class="mb-2"><label class="form-label small">Scheduled Date & Time</label><input type="datetime-local" class="form-control" name="scheduled_at"></div>
           <div class="mb-2"><label class="form-label small">Outcome</label><input class="form-control" name="outcome" placeholder="e.g. Interested, No answer"></div>
           <div class="mb-2"><label class="form-label small">Notes</label><textarea class="form-control" name="notes" rows="3"></textarea></div>
         </form>

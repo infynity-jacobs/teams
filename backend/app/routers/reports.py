@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Lead, User, Team, LeadStatusEnum, RoleEnum
+from app.models import Lead, User, Team, FollowUp, LeadStatusEnum, RoleEnum
 from app.deps import get_current_user
 from app.routers.leads import _visible_leads_query
 from app.utils.exporters import build_xlsx, build_pdf
@@ -179,6 +179,36 @@ def team_performance_report(
             headers={"Content-Disposition": "attachment; filename=team_performance.pdf"})
 
     return {"headers": headers, "rows": rows}
+
+
+@router.get("/follow-ups")
+def follow_up_dashboard(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    visible = _visible_leads_query(db, current_user).subquery()
+    q = db.query(FollowUp, Lead, User).join(Lead, FollowUp.lead_id == Lead.id).outerjoin(User, FollowUp.staff_id == User.id).join(visible, Lead.id == visible.c.id)
+    now = dt.datetime.utcnow()
+    today_start = dt.datetime.combine(dt.date.today(), dt.time.min)
+    tomorrow = today_start + dt.timedelta(days=1)
+    rows = q.filter(FollowUp.scheduled_at.isnot(None)).order_by(FollowUp.scheduled_at.asc()).all()
+    overdue, today, upcoming = [], [], []
+    for fu, lead, staff in rows:
+        item = {"id": fu.id, "lead_id": lead.id, "lead_name": f"{lead.first_name} {lead.last_name or ''}".strip(),
+                "company": lead.company, "scheduled_at": fu.scheduled_at, "completed_at": fu.completed_at,
+                "follow_up_type": fu.follow_up_type, "outcome": fu.outcome, "notes": fu.notes,
+                "staff_name": staff.full_name if staff else None, "status": lead.status.value}
+        if fu.completed_at:
+            continue
+        if fu.scheduled_at < now:
+            overdue.append(item)
+        elif fu.scheduled_at < tomorrow:
+            today.append(item)
+        else:
+            upcoming.append(item)
+    completed_today = q.filter(FollowUp.completed_at >= today_start, FollowUp.completed_at < tomorrow).count()
+    return {"counts": {"overdue": len(overdue), "today": len(today), "upcoming": len(upcoming), "completed_today": completed_today},
+            "overdue": overdue[:50], "today": today[:50], "upcoming": upcoming[:50]}
 
 
 @router.get("/conversion-stats")

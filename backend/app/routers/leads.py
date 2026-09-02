@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models import Lead, User, Team, RoleEnum, LeadStatusHistory, FollowUp, LeadStatusEnum
 from app.schemas import (
     LeadCreate, LeadUpdate, LeadOut, LeadListOut, LeadStatusChange, LeadAssign,
-    LeadDetailOut, FollowUpCreate, FollowUpOut,
+    LeadDetailOut, FollowUpCreate, FollowUpUpdate, FollowUpOut,
 )
 from app.deps import get_current_user, require_roles, log_action, LEADERS_UP, ALL_STAFF
 
@@ -285,6 +285,40 @@ def add_follow_up(
     db.refresh(fu)
     log_action(db, current_user, "add_follow_up", "lead", lead.id, {"type": fu.follow_up_type}, request)
     return fu
+
+
+@router.put("/{lead_id}/follow-ups/{follow_up_id}", response_model=FollowUpOut)
+def update_follow_up(
+    lead_id: int, follow_up_id: int, payload: FollowUpUpdate, request: Request,
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    lead = _get_lead_or_404(db, lead_id)
+    _check_visibility(current_user, lead)
+    fu = db.query(FollowUp).filter(FollowUp.id == follow_up_id, FollowUp.lead_id == lead_id).first()
+    if not fu:
+        raise HTTPException(404, "Follow-up not found")
+    for field, value in payload.dict(exclude_unset=True).items():
+        setattr(fu, field, value)
+    db.commit()
+    db.refresh(fu)
+    log_action(db, current_user, "update_follow_up", "lead", lead_id, {"follow_up_id": follow_up_id}, request)
+    return fu
+
+
+@router.delete("/{lead_id}/follow-ups/{follow_up_id}")
+def delete_follow_up(
+    lead_id: int, follow_up_id: int, request: Request,
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    lead = _get_lead_or_404(db, lead_id)
+    _check_visibility(current_user, lead)
+    fu = db.query(FollowUp).filter(FollowUp.id == follow_up_id, FollowUp.lead_id == lead_id).first()
+    if not fu:
+        raise HTTPException(404, "Follow-up not found")
+    db.delete(fu)
+    db.commit()
+    log_action(db, current_user, "delete_follow_up", "lead", lead_id, {"follow_up_id": follow_up_id}, request)
+    return {"detail": "Follow-up deleted"}
 
 
 @router.delete("/{lead_id}")

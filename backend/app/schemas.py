@@ -160,6 +160,14 @@ class FollowUpCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class FollowUpUpdate(BaseModel):
+    follow_up_type: Optional[str] = None
+    scheduled_at: Optional[dt.datetime] = None
+    completed_at: Optional[dt.datetime] = None
+    outcome: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class FollowUpOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

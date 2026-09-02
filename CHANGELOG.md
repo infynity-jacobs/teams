@@ -1,3 +1,11 @@
+## [2.5.0] - 2026-09-02
+
+- Added scheduled follow-up queue with overdue, today, upcoming and completed-today summaries.
+- Added follow-up scheduling, editing and one-click completion from lead details and the queue.
+- Added dashboard follow-up KPI cards and a clickable follow-up queue.
+- Added a dedicated Follow-ups navigation page with role-scoped visibility.
+- Improved follow-up timeline to show scheduled/completed timestamps and overdue/completed state.
+
 # Changelog
 
 ## v2.4.1 - Dashboard Donut Charts
