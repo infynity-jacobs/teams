@@ -248,6 +248,10 @@ def change_status(
     lead.status = payload.status
     if payload.status == LeadStatusEnum.converted:
         lead.converted_at = dt.datetime.utcnow()
+    elif old_status == LeadStatusEnum.converted.value:
+        # Moving a converted lead back into the sales pipeline makes the
+        # existing conversion eligible for a later re-conversion.
+        lead.converted_at = None
     if payload.status == LeadStatusEnum.lost:
         lead.lost_reason = payload.lost_reason
 

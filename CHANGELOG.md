@@ -1,3 +1,9 @@
+## v2.3.3 - Conversion Re-conversion Fix
+
+- Allow a lead moved back from Converted to be converted again.
+- Reuse the existing conversion record and replace its current items/totals on re-conversion.
+- Clear `converted_at` when a converted lead is moved to another status.
+
 ## v2.3.2 — Lead Products & Conversion UI
 - Added Interested Products section to lead detail.
 - Added Add Product and Convert Lead workflows.
