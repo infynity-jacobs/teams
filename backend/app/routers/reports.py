@@ -216,7 +216,7 @@ def email_report(payload: ReportEmailRequest, request: Request,
                  current_user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
     """Generate a report using the same visibility rules as exports and email it."""
-    allowed_types = {"new", "follow_up", "pending", "converted", "lost", "closed", "all", "staff", "team"}
+    allowed_types = {"new", "follow_up", "pending", "converted", "lost", "closed", "all", "staff", "team", "products"}
     requested = {str(x).lower() for x in payload.attachments}
     if payload.report_type not in allowed_types:
         raise HTTPException(400, "Unsupported report type")
@@ -224,7 +224,23 @@ def email_report(payload: ReportEmailRequest, request: Request,
         raise HTTPException(400, "Attachments must be PDF and/or XLSX")
     if not payload.recipients:
         raise HTTPException(400, "At least one recipient is required")
-    if payload.report_type in {"staff", "team"}:
+    if payload.report_type == "products":
+        from app.models import Product, LeadProduct, ConversionItem
+        visible = _visible_leads_query(db, current_user)
+        if payload.team_id: visible = visible.filter(Lead.team_id == payload.team_id)
+        if payload.date_from: visible = visible.filter(Lead.created_at >= payload.date_from)
+        if payload.date_to: visible = visible.filter(Lead.created_at <= dt.datetime.combine(payload.date_to, dt.time.max))
+        ids = {l.id for l in visible.all()}
+        headers = ["Product", "SKU", "Leads", "Converted", "Conversion %", "Revenue"]
+        rows = []
+        for prod in db.query(Product).order_by(Product.name).all():
+            interested = [x for x in db.query(LeadProduct).filter(LeadProduct.product_id == prod.id).all() if x.lead_id in ids]
+            converted_items = [x for x in db.query(ConversionItem).filter(ConversionItem.product_id == prod.id).all() if x.conversion and x.conversion.lead_id in ids]
+            lead_count = len(interested); converted = len({x.conversion.lead_id for x in converted_items})
+            revenue = sum(x.line_total for x in converted_items)
+            rows.append([prod.name, prod.sku or "", lead_count, converted, round(converted*100/lead_count,1) if lead_count else 0.0, f"{prod.currency} {revenue}"])
+        title = "Product Performance Report"
+    elif payload.report_type in {"staff", "team"}:
         if payload.report_type == "staff":
             base = _apply_common_filters(_visible_leads_query(db, current_user),
                                          payload.date_from, payload.date_to, payload.team_id, None, payload.source, None)
@@ -284,3 +300,27 @@ def email_report(payload: ReportEmailRequest, request: Request,
     log_action(db, current_user, "report_emailed", "report", None,
                {"report_type": payload.report_type, "recipients": payload.recipients, "attachments": sorted(requested)}, request)
     return {"detail": "Report emailed successfully"}
+
+
+@router.get("/products")
+def product_performance_report(date_from: Optional[dt.date]=None, date_to: Optional[dt.date]=None, team_id: Optional[int]=None, export: Optional[str]=Query(None), current_user: User=Depends(get_current_user), db: Session=Depends(get_db)):
+    from app.models import Product, LeadProduct, ConversionItem
+    visible=_visible_leads_query(db,current_user)
+    if team_id: visible=visible.filter(Lead.team_id==team_id)
+    if date_from: visible=visible.filter(Lead.created_at>=date_from)
+    if date_to: visible=visible.filter(Lead.created_at<=dt.datetime.combine(date_to,dt.time.max))
+    ids={l.id for l in visible.all()}
+    headers=["Product","SKU","Leads","Converted","Conversion %","Revenue"]
+    rows=[]
+    for p in db.query(Product).order_by(Product.name).all():
+        interested=[x for x in db.query(LeadProduct).filter(LeadProduct.product_id==p.id).all() if x.lead_id in ids]
+        converted=[x for x in db.query(ConversionItem).filter(ConversionItem.product_id==p.id).all() if x.conversion and x.conversion.lead_id in ids]
+        lead_count=len(interested); conv=len({x.conversion.lead_id for x in converted}); revenue=sum(x.line_total for x in converted)
+        rows.append([p.name,p.sku or "",lead_count,conv,round(conv*100/lead_count,1) if lead_count else 0.0,f"{p.currency} {revenue}"])
+    if export=="xlsx":
+        data=build_xlsx(headers,rows,title="product_performance")
+        return StreamingResponse(iter([data]),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":"attachment; filename=product_performance.xlsx"})
+    if export=="pdf":
+        data=build_pdf(headers,rows,title="Product Performance Report",subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+        return StreamingResponse(iter([data]),media_type="application/pdf",headers={"Content-Disposition":"attachment; filename=product_performance.pdf"})
+    return {"headers":headers,"rows":rows}

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import openpyxl
 
 from app.database import get_db
-from app.models import User, Lead, ImportBatch, LeadStatusHistory, LeadStatusEnum
+from app.models import User, Lead, ImportBatch, LeadStatusHistory, LeadStatusEnum, Product, LeadProduct
 from app.schemas import ImportResultOut
 from app.deps import get_current_user, require_roles, log_action, LEADERS_UP
 from app.routers.leads import _dedup_key
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/import", tags=["import"])
 # Fields the application understands for mapping
 APPLICATION_FIELDS = [
     "first_name", "last_name", "email", "phone", "company", "source",
-    "place_area", "referred_by", "notes",
+    "place_area", "referred_by", "products", "notes",
 ]
 REQUIRED_FIELDS = ["first_name"]
 
@@ -138,6 +138,14 @@ async def commit_import(
             )
             db.add(lead)
             db.flush()
+            product_text = values.get("products") or ""
+            if product_text:
+                names = [x.strip() for x in product_text.split(",") if x.strip()]
+                for name in names:
+                    product = db.query(Product).filter(Product.name.ilike(name), Product.is_active == True).first()
+                    if not product:
+                        raise ValueError(f"Unknown active product '{name}'")
+                    db.add(LeadProduct(lead_id=lead.id, product_id=product.id, quantity=1, interest_status="interested"))
             db.add(LeadStatusHistory(lead_id=lead.id, old_status=None, new_status="new",
                                       changed_by_id=current_user.id, note=f"Imported (row {row_num})"))
             success += 1

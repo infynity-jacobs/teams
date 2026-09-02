@@ -2,6 +2,7 @@ const NAV_ITEMS = [
   { hash: "#/dashboard", label: "Dashboard", icon: "bi-speedometer2", roles: null },
   { hash: "#/profile", label: "My Profile", icon: "bi-person-circle", roles: null },
   { hash: "#/leads", label: "Leads", icon: "bi-people", roles: null },
+  { hash: "#/products", label: "Products", icon: "bi-box-seam", roles: null },
   { hash: "#/import", label: "Import", icon: "bi-upload", roles: ["super_admin", "site_admin", "marketing_manager", "team_leader"] },
   { hash: "#/reports", label: "Reports", icon: "bi-bar-chart", roles: null },
   { hash: "#/teams", label: "Teams", icon: "bi-diagram-3", roles: null },
@@ -119,6 +120,7 @@ async function router() {
     else if (path === "profile") await Views.profile(root);
     else if (path === "leads" && !param) await Views.leads(root);
     else if (path === "leads" && param) await Views.leadDetail(root, param);
+    else if (path === "products") await Views.products(root);
     else if (path === "import") await Views.import(root);
     else if (path === "teams") await Views.teams(root);
     else if (path === "users") await Views.users(root);

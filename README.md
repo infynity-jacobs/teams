@@ -214,3 +214,17 @@ sudo bash deploy/install_ubuntu22.sh
 ```
 
 The installer initializes the SQLAlchemy schema first and then runs the idempotent migrations. It also installs the deployment/migration files into `/opt/leadcrm/deploy/` so future upgrades can be performed on the server without relying on the original source directory.
+
+## v2.3 Products & Conversion
+
+v2.3 adds a product catalogue, product categories, lead product interests, conversion records with price/tax/discount snapshots, product performance reporting, and product-aware Excel lead import.
+
+For an existing installation, run the standard upgrade script from the package root:
+
+```bash
+sudo bash deploy/upgrade_ubuntu22.sh
+```
+
+The upgrade preserves `backend/.env`, uploads, the PostgreSQL database, and the existing installation while applying migration `0003_products_conversion.sql`.
+
+The migration also creates ten safe demo products and links several existing `demo.leadXX@example.com` records to products when those demo leads exist.

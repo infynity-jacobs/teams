@@ -490,7 +490,7 @@ Views.import = async function (root) {
     <h4 class="mb-3">Import Leads from Excel</h4>
     <div class="card mb-3">
       <div class="card-body">
-        <p class="text-muted small">Upload an .xlsx file, then map its columns to lead fields. Rows missing a first name will be rejected; rows matching an existing lead's email/phone are skipped as duplicates.</p>
+        <p class="text-muted small">Upload an .xlsx file, then map its columns to lead fields. Rows missing a first name will be rejected; rows matching an existing lead's email/phone are skipped as duplicates. Map "products" to a comma-separated list of product names to link products automatically.</p>
         <input type="file" class="form-control" id="import-file" accept=".xlsx,.xlsm">
         <button class="btn btn-primary btn-sm mt-2" id="preview-btn"><i class="bi bi-eye"></i> Preview & Map Columns</button>
       </div>
@@ -795,6 +795,7 @@ const REPORT_TYPES = [
   { key: "all", label: "All Leads", endpoint: "/reports/leads", params: { stage: "all" } },
   { key: "staff", label: "Staff-wise Performance", endpoint: "/reports/staff-performance", params: {} },
   { key: "team", label: "Team-wise Performance", endpoint: "/reports/team-performance", params: {} },
+  { key: "products", label: "Product Performance", endpoint: "/reports/products", params: {} },
 ];
 
 Views.reports = async function (root) {

@@ -101,6 +101,8 @@ class Lead(Base):
     team = relationship("Team", foreign_keys=[team_id])
     history = relationship("LeadStatusHistory", back_populates="lead", cascade="all, delete-orphan")
     follow_ups = relationship("FollowUp", back_populates="lead", cascade="all, delete-orphan")
+    products = relationship("LeadProduct", back_populates="lead", cascade="all, delete-orphan")
+    conversion = relationship("Conversion", back_populates="lead", uselist=False, cascade="all, delete-orphan")
 
 
 class LeadStatusHistory(Base):
@@ -199,6 +201,79 @@ class SettingOption(Base):
     created_at = Column(DateTime, default=utcnow)
 
     created_by = relationship("User")
+
+
+class ProductCategory(Base):
+    __tablename__ = "product_categories"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(120), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=utcnow)
+    products = relationship("Product", back_populates="category")
+
+
+class Product(Base):
+    __tablename__ = "products"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, index=True)
+    sku = Column(String(100), unique=True, nullable=True, index=True)
+    description = Column(Text, nullable=True)
+    category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True, index=True)
+    price = Column(Integer, nullable=False, default=0)
+    currency = Column(String(10), nullable=False, default="INR")
+    tax_percent = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    category = relationship("ProductCategory", back_populates="products")
+
+
+class LeadProduct(Base):
+    __tablename__ = "lead_products"
+    id = Column(Integer, primary_key=True, index=True)
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False, default=1)
+    interest_status = Column(String(30), nullable=False, default="interested")
+    quoted_price = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    lead = relationship("Lead", back_populates="products")
+    product = relationship("Product")
+
+
+class Conversion(Base):
+    __tablename__ = "conversions"
+    id = Column(Integer, primary_key=True, index=True)
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    converted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    conversion_date = Column(DateTime, default=utcnow)
+    subtotal = Column(Integer, nullable=False, default=0)
+    discount = Column(Integer, nullable=False, default=0)
+    tax = Column(Integer, nullable=False, default=0)
+    total = Column(Integer, nullable=False, default=0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    lead = relationship("Lead", back_populates="conversion")
+    converted_by = relationship("User")
+    items = relationship("ConversionItem", back_populates="conversion", cascade="all, delete-orphan")
+
+
+class ConversionItem(Base):
+    __tablename__ = "conversion_items"
+    id = Column(Integer, primary_key=True, index=True)
+    conversion_id = Column(Integer, ForeignKey("conversions.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    product_name = Column(String(200), nullable=False)
+    sku = Column(String(100), nullable=True)
+    quantity = Column(Integer, nullable=False, default=1)
+    unit_price = Column(Integer, nullable=False, default=0)
+    tax_percent = Column(Integer, nullable=False, default=0)
+    line_total = Column(Integer, nullable=False, default=0)
+    conversion = relationship("Conversion", back_populates="items")
+    product = relationship("Product")
 
 
 class AuditLog(Base):

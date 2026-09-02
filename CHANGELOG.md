@@ -1,3 +1,13 @@
+# v2.3.0 — Products & Conversion
+
+- Added product catalogue and product categories.
+- Added products to leads with quantities, interest status, quoted price and notes.
+- Added conversion workflow with price/tax/discount snapshots.
+- Added product performance reports with PDF/XLSX export and email support.
+- Added demo product catalogue to migration (safe ON CONFLICT seed).
+- Added product and conversion navigation/UI.
+- Added database migration 0003_products_conversion.sql.
+
 
 ## v2.2.0
 - Added Team and Assigned To selectors to the lead create/edit form.

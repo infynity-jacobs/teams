@@ -295,3 +295,122 @@ class AuditLogOut(BaseModel):
     details: Optional[Any] = None
     ip_address: Optional[str] = None
     created_at: dt.datetime
+
+
+# ---------- Products & Conversion ----------
+class ProductCategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class ProductCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ProductCategoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    description: Optional[str] = None
+    is_active: bool
+    created_at: dt.datetime
+
+class ProductCreate(BaseModel):
+    name: str
+    sku: Optional[str] = None
+    description: Optional[str] = None
+    category_id: Optional[int] = None
+    price: int = 0
+    currency: str = "INR"
+    tax_percent: int = 0
+    is_active: bool = True
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    sku: Optional[str] = None
+    description: Optional[str] = None
+    category_id: Optional[int] = None
+    price: Optional[int] = None
+    currency: Optional[str] = None
+    tax_percent: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class ProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    sku: Optional[str] = None
+    description: Optional[str] = None
+    category_id: Optional[int] = None
+    price: int
+    currency: str
+    tax_percent: int
+    is_active: bool
+    created_at: dt.datetime
+    updated_at: dt.datetime
+    category_name: Optional[str] = None
+
+class LeadProductCreate(BaseModel):
+    product_id: int
+    quantity: int = 1
+    interest_status: str = "interested"
+    quoted_price: Optional[int] = None
+    notes: Optional[str] = None
+
+class LeadProductUpdate(BaseModel):
+    quantity: Optional[int] = None
+    interest_status: Optional[str] = None
+    quoted_price: Optional[int] = None
+    notes: Optional[str] = None
+
+class LeadProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    lead_id: int
+    product_id: int
+    quantity: int
+    interest_status: str
+    quoted_price: Optional[int] = None
+    notes: Optional[str] = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+    product_name: Optional[str] = None
+    sku: Optional[str] = None
+    unit_price: Optional[int] = None
+    currency: Optional[str] = None
+
+class ConversionItemCreate(BaseModel):
+    product_id: int
+    quantity: int = 1
+    unit_price: Optional[int] = None
+    tax_percent: Optional[int] = None
+
+class ConversionCreate(BaseModel):
+    items: List[ConversionItemCreate]
+    discount: int = 0
+    conversion_date: Optional[dt.datetime] = None
+    notes: Optional[str] = None
+
+class ConversionItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    product_id: Optional[int] = None
+    product_name: str
+    sku: Optional[str] = None
+    quantity: int
+    unit_price: int
+    tax_percent: int
+    line_total: int
+
+class ConversionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    lead_id: int
+    converted_by_id: Optional[int] = None
+    conversion_date: dt.datetime
+    subtotal: int
+    discount: int
+    tax: int
+    total: int
+    notes: Optional[str] = None
+    items: List[ConversionItemOut] = []
