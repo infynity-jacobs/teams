@@ -484,6 +484,180 @@ Views._leadFormModal = async function (lead, teams, staffList) {
   });
 };
 
+// ---------------- Products ----------------
+Views.products = async function (root) {
+  const user = Auth.getUser();
+  const canManage = ["super_admin", "site_admin", "marketing_manager"].includes(user.role);
+  root.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div><h4 class="mb-0">Products</h4><div class="text-muted small">Manage the product catalogue used by leads and conversions.</div></div>
+      <div class="d-flex gap-2">
+        ${canManage ? '<button class="btn btn-outline-primary" id="product-categories-btn"><i class="bi bi-tags me-1"></i> Categories</button>' : ''}
+        ${canManage ? '<button class="btn btn-primary" id="new-product-btn"><i class="bi bi-plus-lg me-1"></i> New Product</button>' : ''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header bg-white">
+        <div class="row g-2 align-items-center">
+          <div class="col-md-6"><input class="form-control" id="product-search" placeholder="Search by product name or SKU..."></div>
+          <div class="col-md-3"><select class="form-select" id="product-category-filter"><option value="">All Categories</option></select></div>
+          <div class="col-md-3"><select class="form-select" id="product-status-filter"><option value="active">Active Products</option><option value="all">All Products</option></select></div>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light"><tr><th>Product</th><th>SKU</th><th>Category</th><th>Price</th><th>Tax</th><th>Status</th>${canManage ? '<th class="text-end">Actions</th>' : ''}</tr></thead>
+          <tbody id="products-tbody"><tr><td colspan="${canManage ? 7 : 6}" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  let categories = [];
+  try { categories = await apiFetch(`/product-categories?active_only=${canManage ? "false" : "true"}`); } catch (e) {
+    root.innerHTML = `<div class="alert alert-danger">${escapeHtml(e.detail || "Failed to load product categories")}</div>`;
+    return;
+  }
+  const categoryFilter = qs("#product-category-filter");
+  categoryFilter.innerHTML = `<option value="">All Categories</option>${buildOptions(categories, "id", "name")}`;
+
+  const loadProducts = async () => {
+    const search = qs("#product-search").value.trim();
+    const activeOnly = qs("#product-status-filter").value === "active";
+    const categoryId = qs("#product-category-filter").value;
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    params.set("active_only", activeOnly ? "true" : "false");
+    if (categoryId) params.set("category_id", categoryId);
+    try {
+      const products = await apiFetch(`/products?${params.toString()}`);
+      qs("#products-tbody").innerHTML = products.map(p => `
+        <tr>
+          <td><div class="fw-semibold">${escapeHtml(p.name)}</div>${p.description ? `<div class="small text-muted">${escapeHtml(p.description)}</div>` : ""}</td>
+          <td>${escapeHtml(p.sku || "-")}</td>
+          <td>${escapeHtml(p.category_name || "-")}</td>
+          <td>${escapeHtml(p.currency || "INR")} ${Number(p.price || 0).toLocaleString()}</td>
+          <td>${Number(p.tax_percent || 0)}%</td>
+          <td>${p.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+          ${canManage ? `<td class="text-end"><button class="btn btn-sm btn-outline-primary edit-product" data-id="${p.id}"><i class="bi bi-pencil"></i></button></td>` : ""}
+        </tr>`).join("") || `<tr><td colspan="${canManage ? 7 : 6}" class="text-center text-muted py-4">No products found.</td></tr>`;
+
+      if (canManage) {
+        qsa(".edit-product").forEach(btn => btn.addEventListener("click", () => {
+          const product = products.find(p => String(p.id) === String(btn.dataset.id));
+          if (product) Views._productFormModal(product, categories, loadProducts);
+        }));
+      }
+    } catch (e) {
+      qs("#products-tbody").innerHTML = `<tr><td colspan="${canManage ? 7 : 6}" class="text-center text-danger py-4">${escapeHtml(e.detail || "Failed to load products")}</td></tr>`;
+    }
+  };
+
+  ["#product-search", "#product-category-filter", "#product-status-filter"].forEach(sel => {
+    qs(sel).addEventListener("input", loadProducts);
+    qs(sel).addEventListener("change", loadProducts);
+  });
+  if (canManage) {
+    qs("#new-product-btn")?.addEventListener("click", () => Views._productFormModal(null, categories, loadProducts));
+    qs("#product-categories-btn")?.addEventListener("click", () => Views._productCategoriesModal(categories, async () => {
+      categories = await apiFetch(`/product-categories?active_only=false`);
+      categoryFilter.innerHTML = `<option value="">All Categories</option>${buildOptions(categories, "id", "name")}`;
+      await loadProducts();
+    }));
+  }
+  await loadProducts();
+};
+
+Views._productFormModal = function (product, categories, reload) {
+  const isEdit = !!product;
+  const { modal, el } = openModal(`
+    <div class="modal-header"><h5 class="modal-title">${isEdit ? "Edit Product" : "New Product"}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <form id="product-form">
+        <div class="row g-3">
+          <div class="col-md-8"><label class="form-label">Product Name *</label><input class="form-control" name="name" required value="${escapeHtml(product?.name || "")}"></div>
+          <div class="col-md-4"><label class="form-label">SKU</label><input class="form-control" name="sku" value="${escapeHtml(product?.sku || "")}"></div>
+          <div class="col-md-6"><label class="form-label">Category</label><select class="form-select" name="category_id"><option value="">-- None --</option>${buildOptions(categories, "id", "name", product?.category_id)}</select></div>
+          <div class="col-md-3"><label class="form-label">Price</label><input type="number" min="0" step="1" class="form-control" name="price" value="${product?.price ?? 0}"></div>
+          <div class="col-md-3"><label class="form-label">Tax %</label><input type="number" min="0" max="100" step="1" class="form-control" name="tax_percent" value="${product?.tax_percent ?? 0}"></div>
+          <div class="col-md-4"><label class="form-label">Currency</label><input class="form-control" name="currency" maxlength="10" value="${escapeHtml(product?.currency || "INR")}"></div>
+          <div class="col-md-8 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_active" id="product-active" ${product?.is_active !== false ? "checked" : ""}><label class="form-check-label" for="product-active">Active</label></div></div>
+          <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3">${escapeHtml(product?.description || "")}</textarea></div>
+        </div>
+        <div id="product-form-error" class="alert alert-danger py-2 mt-3 d-none"></div>
+      </form>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="product-save-btn">Save</button></div>`);
+
+  qs("#product-save-btn", el).addEventListener("click", async () => {
+    const form = qs("#product-form", el);
+    const payload = Object.fromEntries(new FormData(form).entries());
+    if (!payload.name?.trim()) return;
+    payload.name = payload.name.trim();
+    payload.sku = payload.sku?.trim() || null;
+    payload.description = payload.description?.trim() || null;
+    payload.category_id = payload.category_id ? parseInt(payload.category_id) : null;
+    payload.price = parseInt(payload.price || "0", 10);
+    payload.tax_percent = parseInt(payload.tax_percent || "0", 10);
+    payload.currency = (payload.currency || "INR").trim().toUpperCase();
+    payload.is_active = qs("#product-active", el).checked;
+    try {
+      await apiFetch(isEdit ? `/products/${product.id}` : "/products", { method: isEdit ? "PUT" : "POST", body: payload });
+      showToast(isEdit ? "Product updated" : "Product created");
+      modal.hide();
+      await reload();
+    } catch (e) {
+      const box = qs("#product-form-error", el);
+      box.textContent = e.detail || "Failed to save product";
+      box.classList.remove("d-none");
+    }
+  });
+};
+
+Views._productCategoriesModal = function (categories, reload) {
+  const { modal, el } = openModal(`
+    <div class="modal-header"><h5 class="modal-title">Product Categories</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Name</th><th>Status</th><th class="text-end">Actions</th></tr></thead><tbody id="category-tbody"></tbody></table></div>
+      <hr>
+      <h6>Add Category</h6>
+      <div class="row g-2"><div class="col-md-5"><input class="form-control" id="new-category-name" placeholder="Category name"></div><div class="col-md-5"><input class="form-control" id="new-category-description" placeholder="Description"></div><div class="col-md-2"><button class="btn btn-primary w-100" id="add-category-btn">Add</button></div></div>
+      <div id="category-error" class="alert alert-danger py-2 mt-2 d-none"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>`);
+
+  const render = () => {
+    qs("#category-tbody", el).innerHTML = categories.map(c => `
+      <tr><td>${escapeHtml(c.name)}</td><td>${c.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
+      <td class="text-end"><button class="btn btn-sm btn-outline-primary edit-category" data-id="${c.id}"><i class="bi bi-pencil"></i></button></td></tr>`).join("") || `<tr><td colspan="3" class="text-muted">No categories.</td></tr>`;
+    qsa(".edit-category", el).forEach(btn => btn.addEventListener("click", async () => {
+      const c = categories.find(x => String(x.id) === String(btn.dataset.id));
+      if (!c) return;
+      const name = prompt("Category name:", c.name);
+      if (name === null) return;
+      const description = prompt("Description:", c.description || "");
+      try {
+        await apiFetch(`/product-categories/${c.id}`, { method: "PUT", body: { name: name.trim(), description: description?.trim() || null, is_active: c.is_active } });
+        const updated = await apiFetch("/product-categories?active_only=false");
+        categories.splice(0, categories.length, ...updated);
+        render(); await reload();
+        showToast("Category updated");
+      } catch (e) { showToast(e.detail || "Failed to update category", "danger"); }
+    }));
+  };
+  render();
+  qs("#add-category-btn", el).addEventListener("click", async () => {
+    const name = qs("#new-category-name", el).value.trim();
+    const description = qs("#new-category-description", el).value.trim() || null;
+    if (!name) return;
+    try {
+      await apiFetch("/product-categories", { method: "POST", body: { name, description } });
+      categories.splice(0, categories.length, ...(await apiFetch("/product-categories?active_only=false")));
+      qs("#new-category-name", el).value = ""; qs("#new-category-description", el).value = "";
+      render(); await reload(); showToast("Category added");
+    } catch (e) { const box = qs("#category-error", el); box.textContent = e.detail || "Failed to add category"; box.classList.remove("d-none"); }
+  });
+};
+
 // ---------------- Import ----------------
 Views.import = async function (root) {
   root.innerHTML = `

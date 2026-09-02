@@ -1,3 +1,9 @@
+# v2.3.1 — Products UI Fix
+
+- Fixed the Products navigation error caused by the missing `Views.products` frontend view in the v2.3.0 package.
+- Added the product catalogue UI with search, category/status filters, product create/edit, and category management.
+- Bumped frontend asset cache version to 2.3.1.
+
 # v2.3.0 — Products & Conversion
 
 - Added product catalogue and product categories.
