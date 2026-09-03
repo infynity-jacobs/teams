@@ -81,7 +81,7 @@ def _brand_header(branding: Optional[Mapping[str, Any]], title: str, styles, ava
     if logo_path:
         try:
             p = Path(str(logo_path))
-            if p.exists() and p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+            if p.exists() and p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
                 logo_source = str(p)
                 if p.suffix.lower() == ".webp":
                     # ReportLab does not reliably decode WebP on all deployments.
@@ -95,6 +95,18 @@ def _brand_header(branding: Optional[Mapping[str, Any]], title: str, styles, ava
                         im.save(converted, format="PNG")
                         converted.seek(0)
                         logo_source = converted
+                elif p.suffix.lower() == ".svg":
+                    # ReportLab's Image flowable does not render SVG files directly.
+                    # Convert the SVG to an in-memory PNG using svglib + ReportLab.
+                    # This also preserves transparent SVG logos without requiring
+                    # the browser, Nginx, or public URL to be reachable.
+                    from svglib.svglib import svg2rlg
+                    from reportlab.graphics import renderPM
+                    drawing = svg2rlg(str(p))
+                    if drawing is None:
+                        raise ValueError("Unable to parse SVG logo")
+                    png_bytes = renderPM.drawToString(drawing, fmt="PNG", dpi=144)
+                    logo_source = io.BytesIO(png_bytes)
                 logo = Image(logo_source, width=3.8 * cm, height=1.25 * cm, kind="proportional")
                 logo.hAlign = "LEFT"
         except Exception:

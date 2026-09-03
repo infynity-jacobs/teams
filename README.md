@@ -1,3 +1,7 @@
+## v2.5.6 PDF branding
+
+PDF reports now render configured SVG logos by converting them to an in-memory PNG for ReportLab. PNG, JPEG and WebP logos remain supported. No database migration is required.
+
 # Lead CRM — Marketing Lead Management & Conversion Application
 
 A web-based CRM for managing marketing leads through their full lifecycle:

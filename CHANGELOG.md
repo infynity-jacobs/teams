@@ -1,3 +1,10 @@
+# v2.5.6 - PDF Logo Rendering Fix
+
+- Fixed PDF branding when the configured company logo is SVG.
+- SVG logos are converted to PNG in memory for ReportLab before rendering.
+- Kept PNG/JPEG/WebP logo support and dynamic portrait/landscape PDF layout.
+- Added `svglib` dependency for reliable SVG parsing.
+
 ## v2.5.5 - Reliable PDF Logo Rendering
 
 - Fixed report logo resolution when `UPLOAD_DIR` is relative or the service working directory differs.
