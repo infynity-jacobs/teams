@@ -2,6 +2,10 @@
 
 ## 2.5.8 - Audit Log Accountability Fix
 
+### Password Reset Reliability
+- Password reset links now prefer the configured Frontend URL and otherwise derive the public origin from reverse-proxy headers, avoiding internal Uvicorn URLs when deployed behind Nginx/Cloudflare.
+- Stock Nginx and systemd templates explicitly forward/trust the public host and HTTPS scheme.
+
 - Audit logs now retain actor name, username and role snapshots.
 - Audit log UI displays who performed each action and the exact local date/time including seconds.
 - Existing audit records are backfilled from current user accounts where possible.

@@ -22,6 +22,21 @@ def _reset_minutes(db):
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def _public_base_url(request: Request) -> str:
+    """Return the public browser-facing origin when behind Nginx/Cloudflare.
+
+    Nginx overwrites Host and X-Forwarded-Proto for requests proxied to
+    Uvicorn, so reset links are generated from the public hostname instead
+    of an internal 127.0.0.1:8000/http origin. A configured frontend_url in
+    System Settings still takes precedence inside send_password_reset().
+    """
+    forwarded_host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(",")[0].strip()
+    forwarded_proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    if forwarded_host:
+        return f"{forwarded_proto}://{forwarded_host}".rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
 @router.post("/login", response_model=Token)
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
@@ -54,7 +69,7 @@ def forgot_password(payload: PasswordResetRequest, request: Request, db: Session
         )
         db.add(token); db.commit()
         try:
-            send_password_reset(db, user, raw, str(request.base_url).rstrip("/"))
+            send_password_reset(db, user, raw, _public_base_url(request))
             log_action(db, user, "password_reset_requested", "user", user.id, request=request)
         except Exception:
             token.used_at = dt.datetime.utcnow(); db.commit()
@@ -133,7 +148,7 @@ def admin_reset_password(user_id: int, request: Request,
     user.session_version = (user.session_version or 0) + 1
     db.add(row); db.commit()
     try:
-        send_password_reset(db, user, raw, str(request.base_url).rstrip("/"))
+        send_password_reset(db, user, raw, _public_base_url(request))
     except Exception as exc:
         row.used_at = dt.datetime.utcnow(); db.commit()
         raise HTTPException(400, f"Could not send reset email: {exc}")
