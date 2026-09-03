@@ -493,9 +493,12 @@ Views.leadDetail = async function (root, leadId) {
           <div class="card-body">
             ${lead.history.length ? lead.history.map(h => `
               <div class="timeline-item">
-                <div class="d-flex justify-content-between">
-                  <span>${h.old_status ? `${statusBadge(h.old_status)} &rarr; ${statusBadge(h.new_status)}` : statusBadge(h.new_status)}</span>
-                  <span class="text-muted small">${fmtDateTime(h.changed_at)}</span>
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div>
+                    <div>${h.old_status ? `${statusBadge(h.old_status)} &rarr; ${statusBadge(h.new_status)}` : statusBadge(h.new_status)}</div>
+                    <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>${escapeHtml(h.changed_by_name || "System")}</div>
+                  </div>
+                  <span class="text-muted small text-nowrap">${fmtDateTime(h.changed_at)}</span>
                 </div>
                 ${h.note ? `<div class="small text-muted mt-1">${escapeHtml(h.note)}</div>` : ""}
               </div>`).join("") : `<p class="text-muted mb-0">No history yet.</p>`}

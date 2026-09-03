@@ -189,6 +189,7 @@ class LeadHistoryOut(BaseModel):
     note: Optional[str] = None
     changed_at: dt.datetime
     changed_by_id: Optional[int] = None
+    changed_by_name: Optional[str] = None
 
 
 class LeadDetailOut(LeadOut):

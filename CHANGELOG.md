@@ -1,3 +1,10 @@
+## [2.5.1] - 2026-09-03
+
+### Fixed
+- Lead Status History now displays the user who performed each status change.
+- Added `changed_by_name` to lead history API output.
+- Bumped frontend cache version to 2.5.1.
+
 ## [2.5.0] - 2026-09-02
 
 - Added scheduled follow-up queue with overdue, today, upcoming and completed-today summaries.

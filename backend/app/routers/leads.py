@@ -155,7 +155,19 @@ def get_lead(lead_id: int, current_user: User = Depends(get_current_user), db: S
     out = LeadDetailOut.model_validate(lead)
     out.assigned_to_name = lead.assigned_to.full_name if lead.assigned_to else None
     out.team_name = lead.team.name if lead.team else None
-    out.history = sorted(lead.history, key=lambda h: h.changed_at, reverse=True)
+    history = sorted(lead.history, key=lambda h: h.changed_at, reverse=True)
+    out.history = []
+    for h in history:
+        item = {
+            "id": h.id,
+            "old_status": h.old_status,
+            "new_status": h.new_status,
+            "note": h.note,
+            "changed_at": h.changed_at,
+            "changed_by_id": h.changed_by_id,
+            "changed_by_name": h.changed_by.full_name if h.changed_by else None,
+        }
+        out.history.append(item)
     out.follow_ups = sorted(lead.follow_ups, key=lambda f: f.created_at, reverse=True)
     return out
 
