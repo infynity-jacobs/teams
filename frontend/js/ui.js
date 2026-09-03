@@ -32,10 +32,10 @@ function fmtDate(iso) {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function fmtDateTime(iso) {
+function fmtDateTime(iso, opts = {}) {
   if (!iso) return "-";
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", ...(opts.seconds ? {second: "2-digit"} : {}) });
 }
 
 function roleLabel(role) {

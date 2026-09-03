@@ -280,7 +280,10 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    actor_name = Column(String(200), nullable=True)
+    actor_username = Column(String(80), nullable=True)
+    actor_role = Column(String(50), nullable=True)
     action = Column(String(100), nullable=False)
     entity_type = Column(String(100), nullable=True)
     entity_id = Column(Integer, nullable=True)
