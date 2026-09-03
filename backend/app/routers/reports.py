@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Lead, User, Team, FollowUp, LeadStatusEnum, RoleEnum
+from app.models import Lead, User, Team, FollowUp, LeadStatusEnum, RoleEnum, SystemSetting
 from app.deps import get_current_user
 from app.routers.leads import _visible_leads_query
 from app.utils.exporters import build_xlsx, build_pdf
@@ -16,6 +16,28 @@ from app.deps import require_roles, ALL_STAFF, log_action
 from app.utils.email import send_email
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
+
+
+def _report_branding(db: Session):
+    """Resolve report branding to server-local assets so PDFs do not depend on HTTP."""
+    values = {r.key: (r.value or "") for r in db.query(SystemSetting).filter(SystemSetting.is_secret.is_(False)).all()}
+    logo_url = values.get("company_logo_url", "")
+    logo_path = None
+    if logo_url.startswith("/uploads/"):
+        from pathlib import Path
+        upload_dir = Path(__import__("os").getenv("UPLOAD_DIR", "./uploads"))
+        logo_path = upload_dir / logo_url.rsplit("/", 1)[-1]
+        if not logo_path.exists():
+            logo_path = None
+    return {
+        "company_name": values.get("company_name", ""),
+        "site_name": values.get("site_name", "Lead CRM"),
+        "company_address": values.get("company_address", ""),
+        "contact_phone": values.get("contact_phone", ""),
+        "contact_email": values.get("contact_email", ""),
+        "report_email_footer": values.get("report_email_footer", ""),
+        "logo_path": logo_path,
+    }
 
 
 def _apply_common_filters(q, date_from, date_to, team_id, staff_id, source, status):
@@ -78,7 +100,7 @@ def lead_lifecycle_report(
         )
     if export == "pdf":
         data = build_pdf(headers, rows, title=f"Lead Report: {stage.replace('_', ' ').title()}",
-                          subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+                          subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}", branding=_report_branding(db))
         return StreamingResponse(
             iter([data]), media_type="application/pdf",
             headers={"Content-Disposition": f"attachment; filename={stage}_leads.pdf"},
@@ -129,7 +151,7 @@ def staff_performance_report(
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=staff_performance.xlsx"})
     if export == "pdf":
-        data = build_pdf(headers, rows, title="Staff Performance Report")
+        data = build_pdf(headers, rows, title="Staff Performance Report", branding=_report_branding(db))
         return StreamingResponse(iter([data]), media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=staff_performance.pdf"})
 
@@ -174,7 +196,7 @@ def team_performance_report(
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=team_performance.xlsx"})
     if export == "pdf":
-        data = build_pdf(headers, rows, title="Team Performance Report")
+        data = build_pdf(headers, rows, title="Team Performance Report", branding=_report_branding(db))
         return StreamingResponse(iter([data]), media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=team_performance.pdf"})
 
@@ -318,7 +340,7 @@ def email_report(payload: ReportEmailRequest, request: Request,
         attachments.append(("leadcrm_report.xlsx", build_xlsx(headers, rows, title=title), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
     if "pdf" in requested:
         attachments.append(("leadcrm_report.pdf", build_pdf(headers, rows, title=title,
-                           subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"), "application/pdf"))
+                           subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}", branding=_report_branding(db)), "application/pdf"))
     if not attachments:
         raise HTTPException(400, "Select PDF and/or XLSX attachment")
     try:
@@ -351,6 +373,6 @@ def product_performance_report(date_from: Optional[dt.date]=None, date_to: Optio
         data=build_xlsx(headers,rows,title="product_performance")
         return StreamingResponse(iter([data]),media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",headers={"Content-Disposition":"attachment; filename=product_performance.xlsx"})
     if export=="pdf":
-        data=build_pdf(headers,rows,title="Product Performance Report",subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+        data=build_pdf(headers,rows,title="Product Performance Report",subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",branding=_report_branding(db))
         return StreamingResponse(iter([data]),media_type="application/pdf",headers={"Content-Disposition":"attachment; filename=product_performance.pdf"})
     return {"headers":headers,"rows":rows}

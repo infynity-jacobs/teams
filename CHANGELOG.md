@@ -185,3 +185,13 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - Enforced password-reset privilege hierarchy: only Super Admins may reset Super Admin or Site Admin accounts.
 - Prevented non-Super-Admins from using the administrator reset endpoint against higher-privileged accounts.
 - Removed the admin-only password-change control from Settings in favor of the universal My Profile page.
+
+## v2.5.4 - Branded PDF Reports
+
+- Added site/company branding to generated PDF reports.
+- Uses the configured company logo from the server-local uploads directory.
+- Shows company/site name and configured contact details in the PDF header.
+- Shows configured report email footer, or company/site name, in the PDF footer with page numbers.
+- Applies branding consistently to downloaded and emailed PDF reports.
+- Preserves dynamic portrait/landscape report orientation.
+- No database migration required.
