@@ -1,4 +1,17 @@
+## 2.5.8.3 - Category Delete Fix
+
+- Fixed Product Categories delete buttons by binding handlers after dynamic table rendering.
+- Retained PDF SVG logo rendering, password-reset routing, audit actor history, and all previous v2.5.8 fixes.
+
 # Changelog
+
+## 2.5.8.2 - PDF Logo Rendering Fix
+
+- Fixed branded PDF report logos disappearing when ReportLab raster rendering backends are unavailable.
+- SVG logos are now rendered directly as vector graphics using ReportLab `renderPDF`, avoiding optional `renderPM` raster backends.
+- Retained PNG/JPEG/WebP logo handling and all v2.5.8 audit and password-reset fixes.
+
+Changelog
 
 ## 2.5.8 - Audit Log Accountability Fix
 
