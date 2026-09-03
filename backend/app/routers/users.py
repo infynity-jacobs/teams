@@ -109,13 +109,12 @@ def delete_user(
         raise HTTPException(400, "You cannot delete your own account")
     # Preserve historical accountability. Users referenced by CRM history
     # cannot be hard-deleted; Super Admin must deactivate them instead.
-    from app.models import Lead, FollowUp, LeadStatusHistory, ImportBatch, AuditLog, SystemSetting, PasswordResetToken, SettingOption, Conversion
+    from app.models import Lead, FollowUp, LeadStatusHistory, ImportBatch, SystemSetting, PasswordResetToken, SettingOption, Conversion
     dependencies = {
         "leads": db.query(Lead).filter((Lead.assigned_to_id == user_id) | (Lead.created_by_id == user_id)).count(),
         "follow_ups": db.query(FollowUp).filter(FollowUp.staff_id == user_id).count(),
         "status_history": db.query(LeadStatusHistory).filter(LeadStatusHistory.changed_by_id == user_id).count(),
         "imports": db.query(ImportBatch).filter(ImportBatch.imported_by_id == user_id).count(),
-        "audit_logs": db.query(AuditLog).filter(AuditLog.user_id == user_id).count(),
         "settings": db.query(SystemSetting).filter(SystemSetting.updated_by_id == user_id).count(),
         "reset_tokens": db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).count(),
         "options": db.query(SettingOption).filter(SettingOption.created_by_id == user_id).count(),
@@ -125,6 +124,8 @@ def delete_user(
     used=[k for k,v in dependencies.items() if v]
     if used:
         raise HTTPException(409, "User has historical or active records and cannot be permanently deleted; deactivate the user instead. References: " + ", ".join(used))
-    db.delete(user); db.commit()
-    log_action(db, current_user, "delete_user", "user", user_id, {"username": user.username}, request)
+    deleted_username = user.username
+    db.delete(user)
+    db.commit()
+    log_action(db, current_user, "delete_user", "user", user_id, {"username": deleted_username}, request)
     return {"detail": "User deleted"}
