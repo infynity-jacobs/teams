@@ -82,10 +82,45 @@ def _brand_header(branding: Optional[Mapping[str, Any]], title: str, styles, ava
         try:
             p = Path(str(logo_path))
             if p.exists() and p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
+                ext = p.suffix.lower()
                 logo_source = str(p)
-                if p.suffix.lower() == ".webp":
-                    # ReportLab does not reliably decode WebP on all deployments.
-                    # Convert it in memory to PNG when Pillow is available.
+
+                if ext == ".svg":
+                    # SVG files can contain large transparent/viewBox margins.
+                    # Rasterize first and trim transparent borders so the actual
+                    # mark occupies the requested header area. CairoSVG is the
+                    # primary renderer; svglib/renderPM is a compatibility fallback.
+                    png_bytes = None
+                    try:
+                        import cairosvg
+                        png_bytes = cairosvg.svg2png(url=str(p), output_width=900)
+                    except Exception:
+                        from svglib.svglib import svg2rlg
+                        from reportlab.graphics import renderPM
+                        drawing = svg2rlg(str(p))
+                        if drawing is None:
+                            raise ValueError("Unable to parse SVG logo")
+                        png_bytes = renderPM.drawToString(drawing, fmt="PNG", dpi=144)
+
+                    from PIL import Image as PILImage
+                    from PIL import ImageChops
+                    import io as _io
+                    with PILImage.open(_io.BytesIO(png_bytes)) as im:
+                        im = im.convert("RGBA")
+                        alpha = im.getchannel("A")
+                        bbox = alpha.getbbox()
+                        if bbox:
+                            im = im.crop(bbox)
+                        # Add a tiny transparent margin to avoid clipping anti-aliased edges.
+                        margin = max(2, int(min(im.size) * 0.01))
+                        canvas = PILImage.new("RGBA", (im.width + margin * 2, im.height + margin * 2), (255, 255, 255, 0))
+                        canvas.paste(im, (margin, margin), im)
+                        converted = _io.BytesIO()
+                        canvas.save(converted, format="PNG", optimize=True)
+                        converted.seek(0)
+                        logo_source = converted
+
+                elif ext == ".webp":
                     from PIL import Image as PILImage
                     import io as _io
                     with PILImage.open(p) as im:
@@ -95,21 +130,14 @@ def _brand_header(branding: Optional[Mapping[str, Any]], title: str, styles, ava
                         im.save(converted, format="PNG")
                         converted.seek(0)
                         logo_source = converted
-                elif p.suffix.lower() == ".svg":
-                    # ReportLab's Image flowable does not render SVG files directly.
-                    # Convert the SVG to an in-memory PNG using svglib + ReportLab.
-                    # This also preserves transparent SVG logos without requiring
-                    # the browser, Nginx, or public URL to be reachable.
-                    from svglib.svglib import svg2rlg
-                    from reportlab.graphics import renderPM
-                    drawing = svg2rlg(str(p))
-                    if drawing is None:
-                        raise ValueError("Unable to parse SVG logo")
-                    png_bytes = renderPM.drawToString(drawing, fmt="PNG", dpi=144)
-                    logo_source = io.BytesIO(png_bytes)
+
                 logo = Image(logo_source, width=3.8 * cm, height=1.25 * cm, kind="proportional")
                 logo.hAlign = "LEFT"
-        except Exception:
+        except Exception as exc:
+            # Do not break report generation because branding is unavailable,
+            # but make the failure visible in the backend journal.
+            import logging
+            logging.getLogger(__name__).warning("PDF logo could not be rendered from %s: %s", logo_path, exc)
             logo = None
 
     if logo:

@@ -53,7 +53,8 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
   postgresql postgresql-contrib \
   nginx \
   build-essential libpq-dev \
-  openssl curl rsync
+  openssl curl rsync \
+  libcairo2
 
 echo "== 2/8: Starting PostgreSQL and waiting for it to accept connections =="
 systemctl enable --now postgresql

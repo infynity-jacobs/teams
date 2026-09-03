@@ -31,6 +31,10 @@ if [[ ! -f "$PROJECT_ROOT/backend/requirements.txt" || ! -d "$PROJECT_ROOT/front
   exit 1
 fi
 
+echo "== 1/7: Ensuring Cairo runtime is available for SVG PDF logos =="
+apt-get update -y
+DEBIAN_FRONTEND=noninteractive apt-get install -y libcairo2
+
 echo "== 1/7: Checking required system tools =="
 for cmd in rsync python3; do
   command -v "$cmd" >/dev/null || { echo "ERROR: $cmd is not installed." >&2; exit 1; }

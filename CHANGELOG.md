@@ -1,3 +1,10 @@
+# v2.5.8.5 - Robust PDF Logo Rendering
+
+- Fixed PDF logos that rendered as blank/tiny marks because SVG viewBox/transparent margins consumed the image area.
+- Added CairoSVG as the primary SVG rasterizer with svglib/ReportLab fallback.
+- Crops transparent SVG margins before embedding into ReportLab PDFs.
+- Logs PDF logo rendering failures to the backend journal instead of silently hiding them.
+
 # v2.5.8.4 - PDF Logo Rendering Restoration
 
 - Restored the proven v2.5.6 SVG logo rendering path using svglib + ReportLab renderPM for branded PDF reports.
