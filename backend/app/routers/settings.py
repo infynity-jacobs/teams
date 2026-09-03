@@ -96,7 +96,7 @@ async def upload_brand_asset(file: UploadFile = File(...), kind: str = "logo",
     allowed = {".png", ".jpg", ".jpeg", ".webp", ".ico", ".svg"}
     if ext not in allowed:
         raise HTTPException(400, "Unsupported image format")
-    upload_dir = Path(os.getenv("UPLOAD_DIR", "./uploads"))
+    upload_dir = Path(os.getenv("UPLOAD_DIR", str(Path(__file__).resolve().parents[2] / "uploads")))
     upload_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{kind}-{uuid.uuid4().hex}{ext}"
     target = upload_dir / filename

@@ -37,8 +37,10 @@ def _report_branding(db: Session):
         # The application convention is backend/uploads; resolve it from the
         # source tree as well as the process working directory for robustness.
         candidates.extend([
-            Path(__file__).resolve().parents[2] / "uploads" / filename,
+            # Canonical production upload directory: /opt/leadcrm/uploads
             Path(__file__).resolve().parents[3] / "uploads" / filename,
+            # Backward-compatible locations for older installations.
+            Path(__file__).resolve().parents[2] / "uploads" / filename,
             Path("./uploads") / filename,
         ])
         for candidate in candidates:

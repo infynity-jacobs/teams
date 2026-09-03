@@ -74,7 +74,7 @@ def health():
 # frontend directory directly via Nginx (see deploy/nginx_leadcrm.conf).
 FRONTEND_DIR = os.getenv("FRONTEND_DIR", "/app/frontend")
 if os.path.isdir(FRONTEND_DIR):
-    upload_dir = os.getenv("UPLOAD_DIR", "./uploads")
+    upload_dir = os.getenv("UPLOAD_DIR", str(Path(__file__).resolve().parents[2] / "uploads"))
     Path(upload_dir).mkdir(parents=True, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

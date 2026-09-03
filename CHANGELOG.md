@@ -1,3 +1,12 @@
+# v2.5.8.6 - Persistent Branding Uploads
+
+- Fixed upgrade deployment deleting runtime branding uploads under `backend/uploads`.
+- Standardized persistent production uploads to `/opt/leadcrm/uploads`.
+- Existing legacy `backend/uploads` assets are migrated to the canonical upload directory during upgrade.
+- Existing `.env` files without `UPLOAD_DIR` are updated to use the persistent upload directory.
+- PDF branding resolves the canonical upload directory first, with backward-compatible fallbacks.
+- Application upload defaults now use the persistent project-level uploads directory.
+
 # v2.5.8.5 - Robust PDF Logo Rendering
 
 - Fixed PDF logos that rendered as blank/tiny marks because SVG viewBox/transparent margins consumed the image area.

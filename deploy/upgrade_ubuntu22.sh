@@ -47,8 +47,21 @@ BACKUP_DIR="/var/backups/leadcrm"
 mkdir -p "$BACKUP_DIR"
 cp -a "$ENV_FILE" "$BACKUP_DIR/backend.env.$(date +%Y%m%d%H%M%S)"
 
-# Keep .env out of --delete operations. Uploads are intentionally outside
-# the backend/frontend sync trees and are therefore preserved.
+# Branding uploads are runtime data and MUST NOT be deleted by rsync --delete.
+# Canonical location is /opt/leadcrm/uploads. If an older installation kept
+# uploads under backend/uploads, migrate them before syncing the code.
+mkdir -p "$INSTALL_DIR/uploads"
+if [[ -d "$INSTALL_DIR/backend/uploads" ]]; then
+  rsync -a "$INSTALL_DIR/backend/uploads/" "$INSTALL_DIR/uploads/"
+fi
+
+# Ensure existing installations have the canonical upload directory configured.
+# Preserve all other .env values exactly as-is.
+if ! grep -q '^UPLOAD_DIR=' "$ENV_FILE"; then
+  printf '\n# Persistent runtime uploads (preserved across upgrades)\nUPLOAD_DIR=%s/uploads\n' "$INSTALL_DIR" >> "$ENV_FILE"
+fi
+
+# Keep .env and runtime uploads out of --delete operations.
 echo "== 3/7: Installing application files =="
 mkdir -p "$INSTALL_DIR/backend" "$INSTALL_DIR/frontend" "$INSTALL_DIR/deploy"
 rsync -a --delete \
@@ -56,10 +69,10 @@ rsync -a --delete \
   --exclude '__pycache__' \
   --exclude '*.db' \
   --exclude '.env' \
+  --exclude 'uploads/' \
   "$PROJECT_ROOT/backend/" "$INSTALL_DIR/backend/"
 rsync -a --delete "$PROJECT_ROOT/frontend/" "$INSTALL_DIR/frontend/"
 rsync -a "$PROJECT_ROOT/deploy/" "$INSTALL_DIR/deploy/"
-mkdir -p "$INSTALL_DIR/uploads"
 
 chown -R leadcrm:leadcrm "$INSTALL_DIR"
 chmod 600 "$ENV_FILE"
@@ -98,7 +111,7 @@ systemctl reload nginx
 
 echo
 echo "=================================================================="
-echo " Lead CRM v2 upgrade completed successfully."
+echo " Lead CRM v2.5.8.6 upgrade completed successfully."
 echo
 echo " Application: $INSTALL_DIR"
 echo " Backend:     systemctl status leadcrm-backend"
