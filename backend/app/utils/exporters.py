@@ -81,8 +81,21 @@ def _brand_header(branding: Optional[Mapping[str, Any]], title: str, styles, ava
     if logo_path:
         try:
             p = Path(str(logo_path))
-            if p.exists() and p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-                logo = Image(str(p), width=3.8 * cm, height=1.25 * cm, kind="proportional")
+            if p.exists() and p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+                logo_source = str(p)
+                if p.suffix.lower() == ".webp":
+                    # ReportLab does not reliably decode WebP on all deployments.
+                    # Convert it in memory to PNG when Pillow is available.
+                    from PIL import Image as PILImage
+                    import io as _io
+                    with PILImage.open(p) as im:
+                        if im.mode not in ("RGB", "RGBA"):
+                            im = im.convert("RGBA")
+                        converted = _io.BytesIO()
+                        im.save(converted, format="PNG")
+                        converted.seek(0)
+                        logo_source = converted
+                logo = Image(logo_source, width=3.8 * cm, height=1.25 * cm, kind="proportional")
                 logo.hAlign = "LEFT"
         except Exception:
             logo = None

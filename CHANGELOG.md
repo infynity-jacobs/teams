@@ -1,3 +1,10 @@
+## v2.5.5 - Reliable PDF Logo Rendering
+
+- Fixed report logo resolution when `UPLOAD_DIR` is relative or the service working directory differs.
+- Added WebP logo support by converting WebP assets to PNG for ReportLab.
+- Kept dynamic portrait/landscape PDF layout and branded headers/footers.
+- Bumped frontend asset cache version.
+
 ## v2.5.3
 - Dynamic A4 PDF orientation: compact reports use portrait, while wide or long reports use landscape.
 - Improved PDF column sizing and table readability.

@@ -23,12 +23,28 @@ def _report_branding(db: Session):
     values = {r.key: (r.value or "") for r in db.query(SystemSetting).filter(SystemSetting.is_secret.is_(False)).all()}
     logo_url = values.get("company_logo_url", "")
     logo_path = None
-    if logo_url.startswith("/uploads/"):
+    if logo_url:
         from pathlib import Path
-        upload_dir = Path(__import__("os").getenv("UPLOAD_DIR", "./uploads"))
-        logo_path = upload_dir / logo_url.rsplit("/", 1)[-1]
-        if not logo_path.exists():
-            logo_path = None
+        import os
+        filename = logo_url.rsplit("/", 1)[-1]
+        candidates = []
+        configured = os.getenv("UPLOAD_DIR", "").strip()
+        if configured:
+            configured_path = Path(configured)
+            if not configured_path.is_absolute():
+                configured_path = Path(__file__).resolve().parents[2] / configured_path
+            candidates.append(configured_path / filename)
+        # The application convention is backend/uploads; resolve it from the
+        # source tree as well as the process working directory for robustness.
+        candidates.extend([
+            Path(__file__).resolve().parents[2] / "uploads" / filename,
+            Path(__file__).resolve().parents[3] / "uploads" / filename,
+            Path("./uploads") / filename,
+        ])
+        for candidate in candidates:
+            if candidate.exists() and candidate.is_file():
+                logo_path = candidate
+                break
     return {
         "company_name": values.get("company_name", ""),
         "site_name": values.get("site_name", "Lead CRM"),
