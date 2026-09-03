@@ -955,8 +955,6 @@ Views._productCategoriesModal = function (categories, reload) {
     qs("#category-tbody", el).innerHTML = categories.map(c => `
       <tr><td>${escapeHtml(c.name)}</td><td>${c.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
       <td class="text-end"><button class="btn btn-sm btn-outline-primary edit-category" data-id="${c.id}"><i class="bi bi-pencil"></i></button>${Auth.getUser().role === "super_admin" ? ` <button class="btn btn-sm btn-outline-danger delete-category" data-id="${c.id}" title="Delete category"><i class="bi bi-trash"></i></button>` : ""}</td></tr>`).join("") || `<tr><td colspan="3" class="text-muted">No categories.</td></tr>`;
-
-    // Bind after rendering because render() replaces the tbody contents.
     qsa(".edit-category", el).forEach(btn => btn.addEventListener("click", async () => {
       const c = categories.find(x => String(x.id) === String(btn.dataset.id));
       if (!c) return;
@@ -971,20 +969,14 @@ Views._productCategoriesModal = function (categories, reload) {
         showToast("Category updated");
       } catch (e) { showToast(e.detail || "Failed to update category", "danger"); }
     }));
-
-    qsa(".delete-category", el).forEach(btn => btn.addEventListener("click", async () => {
-      const c = categories.find(x => String(x.id) === String(btn.dataset.id));
-      if (!c) return;
-      if (!confirm(`Permanently delete category "${c.name}"? It must contain no products.`)) return;
-      try {
-        await apiFetch(`/product-categories/${c.id}`, { method: "DELETE" });
-        categories.splice(categories.findIndex(x => String(x.id) === String(c.id)), 1);
-        render();
-        await reload();
-        showToast("Category deleted");
-      } catch (e) { showToast(e.detail || "Unable to delete category", "danger"); }
-    }));
   };
+  qsa(".delete-category", el).forEach(btn => btn.addEventListener("click", async () => {
+    const c = categories.find(x => String(x.id) === String(btn.dataset.id));
+    if (!c) return;
+    if (!confirm(`Permanently delete category "${c.name}"? It must contain no products.`)) return;
+    try { await apiFetch(`/product-categories/${c.id}`, {method:"DELETE"}); categories.splice( categories.findIndex(x => x.id === c.id), 1); render(); await reload(); showToast("Category deleted"); }
+    catch (e) { showToast(e.detail || "Unable to delete category", "danger"); }
+  }));
 
   render();
   qs("#add-category-btn", el).addEventListener("click", async () => {

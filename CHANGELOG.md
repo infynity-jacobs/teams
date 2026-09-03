@@ -1,8 +1,3 @@
-## 2.5.8.3 - Category Delete Fix
-
-- Fixed Product Categories delete buttons by binding handlers after dynamic table rendering.
-- Retained PDF SVG logo rendering, password-reset routing, audit actor history, and all previous v2.5.8 fixes.
-
 # Changelog
 
 ## 2.5.8.2 - PDF Logo Rendering Fix
