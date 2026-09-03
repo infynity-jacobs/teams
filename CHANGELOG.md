@@ -1,3 +1,9 @@
+# v2.5.8.4 - PDF Logo Rendering Restoration
+
+- Restored the proven v2.5.6 SVG logo rendering path using svglib + ReportLab renderPM for branded PDF reports.
+- Retained password-reset routing, audit actor history, category delete, and all prior v2.5.8 fixes.
+- Retained PNG/JPEG/WebP logo support and dynamic PDF orientation.
+
 ## 2.5.8.3 - Category Delete Fix
 
 - Fixed Product Categories delete buttons by binding handlers after dynamic table rendering.
