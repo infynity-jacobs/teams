@@ -231,3 +231,5 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - Applies branding consistently to downloaded and emailed PDF reports.
 - Preserves dynamic portrait/landscape report orientation.
 - No database migration required.
+
+Lead CRM v2.5.8 password-reset routing fix

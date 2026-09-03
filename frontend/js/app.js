@@ -152,16 +152,20 @@ async function router() {
 
 window.addEventListener("hashchange", router);
 
-document.addEventListener("DOMContentLoaded", () => {
-  loadPublicBranding();
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadPublicBranding();
 
-  if (Auth.isLoggedIn()) {
-    router();
-  } else {
-    qs("#login-screen").classList.remove("d-none");
-  }
+  // Always route on first load, including unauthenticated reset-password links.
+  // Previously an unauthenticated deep link was left on the login screen because
+  // router() was only called when a session already existed.
+  await router();
 
-  qs("#login-form").addEventListener("submit", async (e) => {
+  const loginForm = qs("#login-form");
+  loginForm?.addEventListener("submit", async (e) => {
+    // The reset-password view installs its own submit handler. Do not run the
+    // normal login handler for a password-reset URL.
+    if (location.hash.startsWith("#/reset-password")) return;
+
     e.preventDefault();
     const username = qs("#login-username").value;
     const password = qs("#login-password").value;
@@ -182,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   qs("#forgot-password-btn")?.addEventListener("click", showForgotPassword);
 
-  qs("#logout-btn").addEventListener("click", () => {
+  qs("#logout-btn")?.addEventListener("click", () => {
     Auth.clear();
     location.hash = "";
     router();
