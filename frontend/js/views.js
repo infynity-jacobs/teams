@@ -1350,6 +1350,10 @@ Views.reports = async function (root) {
     } catch (e) { out.innerHTML = `<div class="alert alert-danger">${escapeHtml(e.detail || "Failed to load report")}</div>`; }
   });
 
+  // Run the selected report immediately when the report type changes.
+  // This prevents the report panel from remaining blank after selecting a report.
+  qs("#rpt-type").addEventListener("change", () => qs("#run-report-btn").click());
+
   qs("#export-xlsx-btn").addEventListener("click", async () => {
     const { type, params } = buildParams();
     params.set("export", "xlsx");

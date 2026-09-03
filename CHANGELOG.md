@@ -1,3 +1,10 @@
+## [2.5.2] - 2026-09-03
+
+### Fixed
+- Reports now automatically run when the selected report type changes.
+- Product Performance immediately displays the product rows after selecting the report, without requiring a second manual click.
+- Bumped frontend cache version to 2.5.2.
+
 ## [2.5.1] - 2026-09-03
 
 ### Fixed
