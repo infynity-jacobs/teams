@@ -1,15 +1,5 @@
 # Changelog
 
-## 2.5.8 - Audit Log Accountability Fix
-
-- Audit logs now retain actor name, username and role snapshots.
-- Audit log UI displays who performed each action and the exact local date/time including seconds.
-- Existing audit records are backfilled from current user accounts where possible.
-- Audit-log user foreign key now uses `ON DELETE SET NULL`, preserving audit history if a user is permanently deleted.
-- Super Admin user deletion no longer treats audit logs as a blocking dependency.
-- Successful user deletion remains audit-logged using the acting administrator.
-
-
 ## 2.5.7 - Branding and Super Admin Controls
 
 - Apply configured company logo/site name/tagline to the login screen.
@@ -57,6 +47,8 @@
 - Added dashboard follow-up KPI cards and a clickable follow-up queue.
 - Added a dedicated Follow-ups navigation page with role-scoped visibility.
 - Improved follow-up timeline to show scheduled/completed timestamps and overdue/completed state.
+
+# Changelog
 
 ## v2.4.1 - Dashboard Donut Charts
 - Replaced dashboard status, team, staff, and product performance bar visualizations with responsive donut charts and clickable legends.

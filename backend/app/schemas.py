@@ -298,9 +298,6 @@ class AuditLogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     user_id: Optional[int] = None
-    actor_name: Optional[str] = None
-    actor_username: Optional[str] = None
-    actor_role: Optional[str] = None
     action: str
     entity_type: Optional[str] = None
     entity_id: Optional[int] = None

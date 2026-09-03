@@ -1461,8 +1461,8 @@ Views.audit = async function (root) {
   const logs = await apiFetch("/audit?page_size=100");
   qs("#audit-tbody").innerHTML = logs.map(l => `
     <tr>
-      <td class="small text-nowrap">${fmtDateTime(l.created_at, {seconds:true})}</td>
-      <td class="small">${escapeHtml(l.actor_name || l.actor_username || (l.user_id ? `User #${l.user_id}` : "System"))}${l.actor_username && l.actor_name ? `<div class="text-muted">${escapeHtml(l.actor_username)}</div>` : ""}</td>
+      <td class="small">${fmtDateTime(l.created_at)}</td>
+      <td class="small">${l.user_id ?? "-"}</td>
       <td class="small">${escapeHtml(l.action)}</td>
       <td class="small">${escapeHtml(l.entity_type || "-")} ${l.entity_id ?? ""}</td>
       <td class="small text-muted">${l.details ? escapeHtml(JSON.stringify(l.details)) : "-"}</td>
