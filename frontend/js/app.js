@@ -40,6 +40,18 @@ async function loadPublicBranding() {
     if (loginTitle) loginTitle.textContent = s.site_name || "Lead CRM";
     const loginBranding = qs("#login-branding");
     if (loginBranding) loginBranding.textContent = s.login_branding || "Marketing Lead Management";
+    const loginLogo = qs("#login-logo");
+    const loginIcon = qs("#login-default-icon");
+    if (loginLogo) {
+      if (s.company_logo_url) {
+        loginLogo.src = s.company_logo_url;
+        loginLogo.classList.remove("d-none");
+        if (loginIcon) loginIcon.classList.add("d-none");
+      } else {
+        loginLogo.classList.add("d-none");
+        if (loginIcon) loginIcon.classList.remove("d-none");
+      }
+    }
     if (s.favicon_url) {
       let link = qs("#site-favicon");
       if (!link) { link = document.createElement("link"); link.id = "site-favicon"; link.rel = "icon"; document.head.appendChild(link); }

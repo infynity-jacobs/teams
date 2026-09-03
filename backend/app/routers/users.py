@@ -96,20 +96,35 @@ def update_user(
 
 
 @router.delete("/{user_id}")
-def deactivate_user(
+def delete_user(
     user_id: int,
     request: Request,
-    current_user: User = Depends(require_roles(*ADMINS)),
+    current_user: User = Depends(require_roles(RoleEnum.super_admin)),
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
-    if user.role in (RoleEnum.super_admin, RoleEnum.site_admin) and current_user.role != RoleEnum.super_admin:
-        raise HTTPException(403, "Only Super Admins may deactivate administrator accounts")
     if user.id == current_user.id:
-        raise HTTPException(400, "You cannot deactivate your own account")
-    user.is_active = False
-    db.commit()
-    log_action(db, current_user, "deactivate_user", "user", user.id, request=request)
-    return {"detail": "User deactivated"}
+        raise HTTPException(400, "You cannot delete your own account")
+    # Preserve historical accountability. Users referenced by CRM history
+    # cannot be hard-deleted; Super Admin must deactivate them instead.
+    from app.models import Lead, FollowUp, LeadStatusHistory, ImportBatch, AuditLog, SystemSetting, PasswordResetToken, SettingOption, Conversion
+    dependencies = {
+        "leads": db.query(Lead).filter((Lead.assigned_to_id == user_id) | (Lead.created_by_id == user_id)).count(),
+        "follow_ups": db.query(FollowUp).filter(FollowUp.staff_id == user_id).count(),
+        "status_history": db.query(LeadStatusHistory).filter(LeadStatusHistory.changed_by_id == user_id).count(),
+        "imports": db.query(ImportBatch).filter(ImportBatch.imported_by_id == user_id).count(),
+        "audit_logs": db.query(AuditLog).filter(AuditLog.user_id == user_id).count(),
+        "settings": db.query(SystemSetting).filter(SystemSetting.updated_by_id == user_id).count(),
+        "reset_tokens": db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).count(),
+        "options": db.query(SettingOption).filter(SettingOption.created_by_id == user_id).count(),
+        "conversions": db.query(Conversion).filter(Conversion.converted_by_id == user_id).count(),
+        "team_leader": db.query(__import__('app.models', fromlist=['Team']).Team).filter(__import__('app.models', fromlist=['Team']).Team.leader_id == user_id).count(),
+    }
+    used=[k for k,v in dependencies.items() if v]
+    if used:
+        raise HTTPException(409, "User has historical or active records and cannot be permanently deleted; deactivate the user instead. References: " + ", ".join(used))
+    db.delete(user); db.commit()
+    log_action(db, current_user, "delete_user", "user", user_id, {"username": user.username}, request)
+    return {"detail": "User deleted"}

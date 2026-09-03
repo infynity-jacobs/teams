@@ -1,3 +1,13 @@
+# Changelog
+
+## 2.5.7 - Branding and Super Admin Controls
+
+- Apply configured company logo/site name/tagline to the login screen.
+- Add Super Admin-only permanent delete controls for products, categories, users, teams, and leads.
+- Protect historical product/category/user/team records with dependency checks; recommend deactivation when historical references exist.
+- Keep Site Admin and lower roles from destructive administrative operations.
+- Add audit logging for successful destructive operations.
+
 # v2.5.6 - PDF Logo Rendering Fix
 
 - Fixed PDF branding when the configured company logo is SVG.

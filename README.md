@@ -1,4 +1,4 @@
-## v2.5.6 PDF branding
+## v2.5.7 PDF branding
 
 PDF reports now render configured SVG logos by converting them to an in-memory PNG for ReportLab. PNG, JPEG and WebP logos remain supported. No database migration is required.
 

@@ -225,7 +225,7 @@ def update_lead(
 @router.post("/{lead_id}/assign", response_model=LeadOut)
 def assign_lead(
     lead_id: int, payload: LeadAssign, request: Request,
-    current_user: User = Depends(require_roles(*LEADERS_UP)), db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(RoleEnum.super_admin)), db: Session = Depends(get_db),
 ):
     lead = _get_lead_or_404(db, lead_id)
     if current_user.role not in (RoleEnum.super_admin, RoleEnum.site_admin, RoleEnum.marketing_manager):

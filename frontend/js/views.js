@@ -409,7 +409,10 @@ Views.leadDetail = async function (root, leadId) {
         <a href="#/leads" class="text-decoration-none small"><i class="bi bi-arrow-left"></i> Back to Leads</a>
         <h4 class="mb-0 mt-1">${escapeHtml(lead.first_name)} ${escapeHtml(lead.last_name || "")} ${statusBadge(lead.status)}</h4>
       </div>
-      <button class="btn btn-outline-secondary btn-sm" id="edit-lead-btn"><i class="bi bi-pencil"></i> Edit</button>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="edit-lead-btn"><i class="bi bi-pencil"></i> Edit</button>
+        ${user.role === "super_admin" ? '<button class="btn btn-outline-danger btn-sm" id="delete-lead-btn"><i class="bi bi-trash"></i> Delete</button>' : ""}
+      </div>
     </div>
     <div class="row g-3">
       <div class="col-lg-4">
@@ -658,6 +661,12 @@ Views.leadDetail = async function (root, leadId) {
     Views._leadFormModal(lead, teams, staffList);
   });
 
+  qs("#delete-lead-btn")?.addEventListener("click", async () => {
+    if (!confirm(`Permanently delete this lead? This removes its follow-ups, products, conversion and status history.`)) return;
+    try { await apiFetch(`/leads/${leadId}`, {method:"DELETE"}); showToast("Lead deleted"); location.hash="#/leads"; }
+    catch (e) { showToast(e.detail || "Unable to delete lead", "danger"); }
+  });
+
   qs("#add-followup-btn").addEventListener("click", () => {
     const { modal, el } = openModal(`
       <div class="modal-header"><h5 class="modal-title">Log Follow-up</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -796,6 +805,7 @@ Views._leadFormModal = async function (lead, teams, staffList) {
 Views.products = async function (root) {
   const user = Auth.getUser();
   const canManage = ["super_admin", "site_admin", "marketing_manager"].includes(user.role);
+  const isSuperAdmin = user.role === "super_admin";
   root.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div><h4 class="mb-0">Products</h4><div class="text-muted small">Manage the product catalogue used by leads and conversions.</div></div>
@@ -846,13 +856,21 @@ Views.products = async function (root) {
           <td>${escapeHtml(p.currency || "INR")} ${Number(p.price || 0).toLocaleString()}</td>
           <td>${Number(p.tax_percent || 0)}%</td>
           <td>${p.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
-          ${canManage ? `<td class="text-end"><button class="btn btn-sm btn-outline-primary edit-product" data-id="${p.id}"><i class="bi bi-pencil"></i></button></td>` : ""}
+          ${canManage ? `<td class="text-end"><button class="btn btn-sm btn-outline-primary edit-product" data-id="${p.id}"><i class="bi bi-pencil"></i></button>${isSuperAdmin ? ` <button class="btn btn-sm btn-outline-danger delete-product" data-id="${p.id}" title="Delete product"><i class="bi bi-trash"></i></button>` : ""}</td>` : ""}
         </tr>`).join("") || `<tr><td colspan="${canManage ? 7 : 6}" class="text-center text-muted py-4">No products found.</td></tr>`;
 
       if (canManage) {
         qsa(".edit-product").forEach(btn => btn.addEventListener("click", () => {
           const product = products.find(p => String(p.id) === String(btn.dataset.id));
           if (product) Views._productFormModal(product, categories, loadProducts);
+        }));
+
+        qsa(".delete-product").forEach(btn => btn.addEventListener("click", async () => {
+          const product = products.find(p => String(p.id) === String(btn.dataset.id));
+          if (!product) return;
+          if (!confirm(`Permanently delete product "${product.name}"? Products used by leads/conversions must be deactivated instead.`)) return;
+          try { await apiFetch(`/products/${product.id}`, {method:"DELETE"}); showToast("Product deleted"); await loadProducts(); }
+          catch (e) { showToast(e.detail || "Unable to delete product", "danger"); }
         }));
       }
     } catch (e) {
@@ -936,7 +954,7 @@ Views._productCategoriesModal = function (categories, reload) {
   const render = () => {
     qs("#category-tbody", el).innerHTML = categories.map(c => `
       <tr><td>${escapeHtml(c.name)}</td><td>${c.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
-      <td class="text-end"><button class="btn btn-sm btn-outline-primary edit-category" data-id="${c.id}"><i class="bi bi-pencil"></i></button></td></tr>`).join("") || `<tr><td colspan="3" class="text-muted">No categories.</td></tr>`;
+      <td class="text-end"><button class="btn btn-sm btn-outline-primary edit-category" data-id="${c.id}"><i class="bi bi-pencil"></i></button>${Auth.getUser().role === "super_admin" ? ` <button class="btn btn-sm btn-outline-danger delete-category" data-id="${c.id}" title="Delete category"><i class="bi bi-trash"></i></button>` : ""}</td></tr>`).join("") || `<tr><td colspan="3" class="text-muted">No categories.</td></tr>`;
     qsa(".edit-category", el).forEach(btn => btn.addEventListener("click", async () => {
       const c = categories.find(x => String(x.id) === String(btn.dataset.id));
       if (!c) return;
@@ -952,6 +970,14 @@ Views._productCategoriesModal = function (categories, reload) {
       } catch (e) { showToast(e.detail || "Failed to update category", "danger"); }
     }));
   };
+  qsa(".delete-category", el).forEach(btn => btn.addEventListener("click", async () => {
+    const c = categories.find(x => String(x.id) === String(btn.dataset.id));
+    if (!c) return;
+    if (!confirm(`Permanently delete category "${c.name}"? It must contain no products.`)) return;
+    try { await apiFetch(`/product-categories/${c.id}`, {method:"DELETE"}); categories.splice( categories.findIndex(x => x.id === c.id), 1); render(); await reload(); showToast("Category deleted"); }
+    catch (e) { showToast(e.detail || "Unable to delete category", "danger"); }
+  }));
+
   render();
   qs("#add-category-btn", el).addEventListener("click", async () => {
     const name = qs("#new-category-name", el).value.trim();
@@ -1095,6 +1121,7 @@ Views.import = async function (root) {
 Views.teams = async function (root) {
   const user = Auth.getUser();
   const canManage = ["super_admin", "site_admin", "marketing_manager"].includes(user.role);
+  const isSuperAdmin = user.role === "super_admin";
   root.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h4 class="mb-0">Teams</h4>
@@ -1118,12 +1145,19 @@ Views.teams = async function (root) {
         <td class="text-muted small">${escapeHtml(t.description || "-")}</td>
         <td>${t.member_count}</td>
         <td>${t.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td>
-        ${canManage ? `<td class="text-end"><button class="btn btn-sm btn-outline-secondary edit-team" data-id="${t.id}"><i class="bi bi-pencil"></i></button></td>` : ""}
+        ${canManage ? `<td class="text-end"><button class="btn btn-sm btn-outline-secondary edit-team" data-id="${t.id}"><i class="bi bi-pencil"></i></button>${isSuperAdmin ? ` <button class="btn btn-sm btn-outline-danger delete-team" data-id="${t.id}" title="Delete team"><i class="bi bi-trash"></i></button>` : ""}</td>` : ""}
       </tr>`).join("") || `<tr><td colspan="5" class="text-center text-muted py-4">No teams yet</td></tr>`;
 
     qsa(".edit-team").forEach(btn => btn.addEventListener("click", () => {
       const team = teams.find(t => t.id == btn.dataset.id);
       Views._teamFormModal(team);
+    }));
+    qsa(".delete-team").forEach(btn => btn.addEventListener("click", async () => {
+      const team = teams.find(t => t.id == btn.dataset.id);
+      if (!team) return;
+      if (!confirm(`Permanently delete team "${team.name}"? Teams with users or leads cannot be deleted.`)) return;
+      try { await apiFetch(`/teams/${team.id}`, {method:"DELETE"}); showToast("Team deleted"); await load(); }
+      catch (e) { showToast(e.detail || "Unable to delete team", "danger"); }
     }));
   };
   load();
@@ -1167,6 +1201,8 @@ Views._teamFormModal = function (team) {
 
 // ---------------- Users ----------------
 Views.users = async function (root) {
+  const currentUser = Auth.getUser();
+  const isSuperAdmin = currentUser.role === "super_admin";
   root.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h4 class="mb-0">Staff & Users</h4>
@@ -1197,7 +1233,7 @@ Views.users = async function (root) {
         <td>${u.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Disabled</span>'}</td>
         <td class="text-end">
   <button class="btn btn-sm btn-outline-secondary edit-user" data-id="${u.id}"><i class="bi bi-pencil"></i></button>
-  <button class="btn btn-sm btn-outline-warning reset-user" data-id="${u.id}" title="Send password reset email"><i class="bi bi-key"></i></button>
+  <button class="btn btn-sm btn-outline-warning reset-user" data-id="${u.id}" title="Send password reset email"><i class="bi bi-key"></i></button>${isSuperAdmin && u.id !== currentUser.user_id ? ` <button class="btn btn-sm btn-outline-danger delete-user" data-id="${u.id}" title="Delete user"><i class="bi bi-trash"></i></button>` : ""}
 </td>
       </tr>`).join("") || `<tr><td colspan="7" class="text-center text-muted py-4">No users yet</td></tr>`;
 
@@ -1211,6 +1247,13 @@ Views.users = async function (root) {
         await apiFetch(`/auth/admin-reset-password?user_id=${btn.dataset.id}`, { method: "POST" });
         showToast("Password reset email sent");
       } catch (e) { showToast(e.detail || "Failed to send reset email", "danger"); }
+    }));
+    qsa(".delete-user").forEach(btn => btn.addEventListener("click", async () => {
+      const u = users.find(x => x.id == btn.dataset.id);
+      if (!u) return;
+      if (!confirm(`Permanently delete user "${u.full_name}" (${u.username})? Historical users cannot be deleted.`)) return;
+      try { await apiFetch(`/users/${u.id}`, {method:"DELETE"}); showToast("User deleted"); await load(); }
+      catch (e) { showToast(e.detail || "Unable to delete user", "danger"); }
     }));
   };
   load();

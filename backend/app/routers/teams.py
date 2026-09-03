@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Team, User, RoleEnum
+from app.models import Team, User, RoleEnum, Lead, FollowUp
 from app.schemas import TeamOut, TeamCreate, TeamUpdate
 from app.deps import get_current_user, require_roles, log_action, MANAGERS_UP, ADMINS
 
@@ -70,7 +70,15 @@ def delete_team(
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(404, "Team not found")
-    team.is_active = False
-    db.commit()
-    log_action(db, current_user, "deactivate_team", "team", team.id, request=request)
-    return {"detail": "Team deactivated"}
+    if current_user.role != RoleEnum.super_admin:
+        team.is_active = False
+        db.commit()
+        log_action(db, current_user, "deactivate_team", "team", team.id, request=request)
+        return {"detail": "Team deactivated"}
+    member_count = db.query(User).filter(User.team_id == team_id).count()
+    lead_count = db.query(Lead).filter(Lead.team_id == team_id).count()
+    if member_count or lead_count:
+        raise HTTPException(409, f"Team has {member_count} user(s) and {lead_count} lead(s); move them before deleting the team")
+    db.delete(team); db.commit()
+    log_action(db, current_user, "delete_team", "team", team_id, {"name": team.name}, request=request)
+    return {"detail": "Team deleted"}

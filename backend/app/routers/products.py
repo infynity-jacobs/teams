@@ -33,6 +33,15 @@ def update_category(category_id:int,payload:ProductCategoryUpdate,request:Reques
     for k,v in payload.model_dump(exclude_unset=True).items(): setattr(x,k,v.strip() if k=='name' and v else v)
     db.commit(); db.refresh(x); log_action(db,current_user,'update_product_category','product_category',x.id,payload.model_dump(exclude_unset=True),request); return x
 
+@router.delete('/product-categories/{category_id}')
+def delete_category(category_id:int,request:Request,current_user:User=Depends(require_roles(RoleEnum.super_admin)),db:Session=Depends(get_db)):
+    x=db.query(ProductCategory).get(category_id)
+    if not x: raise HTTPException(404,'Category not found')
+    product_count=db.query(Product).filter(Product.category_id==category_id).count()
+    if product_count:
+        raise HTTPException(409,f'Category contains {product_count} product(s); move or deactivate them before deleting the category')
+    db.delete(x); db.commit(); log_action(db,current_user,'delete_product_category','product_category',category_id,{'name':x.name},request); return {'detail':'Category deleted'}
+
 @router.get('/products', response_model=list[ProductOut])
 def list_products(search:str|None=None, active_only:bool=False, category_id:int|None=None, current_user:User=Depends(get_current_user), db:Session=Depends(get_db)):
     q=db.query(Product)
