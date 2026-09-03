@@ -1,3 +1,7 @@
+## v2.5.3
+- Dynamic A4 PDF orientation: compact reports use portrait, while wide or long reports use landscape.
+- Improved PDF column sizing and table readability.
+
 ## [2.5.2] - 2026-09-03
 
 ### Fixed
