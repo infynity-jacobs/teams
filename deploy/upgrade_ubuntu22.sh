@@ -111,7 +111,7 @@ systemctl reload nginx
 
 echo
 echo "=================================================================="
-echo " Lead CRM v2.6.0 upgrade completed successfully."
+echo " Lead CRM v2.6.1 upgrade completed successfully."
 echo
 echo " Application: $INSTALL_DIR"
 echo " Backend:     systemctl status leadcrm-backend"

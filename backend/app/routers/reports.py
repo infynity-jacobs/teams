@@ -119,6 +119,41 @@ def _sales_rows(db: Session, current_user: User, date_from=None, date_to=None, t
     return rows
 
 
+def _product_interest_rows(db: Session, current_user: User, date_from=None, date_to=None, team_id=None, staff_id=None, source=None):
+    """Return product interests for visible leads, attributed to the assigned staff.
+
+    This complements conversion-item sales data so the reports do not become
+    empty merely because a product has been attached to a lead but the sale
+    has not yet been recorded as a conversion. Interest data is never counted
+    as sold units or revenue.
+    """
+    q = (db.query(LeadProduct, Lead)
+         .join(Lead, LeadProduct.lead_id == Lead.id)
+         .filter(Lead.id.in_(db.query(_visible_leads_query(db, current_user).with_entities(Lead.id).subquery()))))
+    if date_from:
+        q = q.filter(Lead.created_at >= date_from)
+    if date_to:
+        q = q.filter(Lead.created_at <= dt.datetime.combine(date_to, dt.time.max))
+    if team_id:
+        q = q.filter(Lead.team_id == team_id)
+    if staff_id:
+        q = q.filter(Lead.assigned_to_id == staff_id)
+    if source:
+        q = q.filter(Lead.source == source)
+    rows = []
+    for lp, lead in q.order_by(Lead.created_at.desc(), LeadProduct.id.asc()).all():
+        seller = lead.assigned_to
+        seller_id = seller.id if seller else None
+        seller_name = seller.full_name if seller else "Unassigned"
+        seller_team = seller.team.name if seller and seller.team else (lead.team.name if lead.team else "")
+        if seller and seller.role != RoleEnum.marketing_staff:
+            seller_id = None
+        rows.append({"item": lp, "lead": lead, "seller_id": seller_id,
+                     "seller_name": seller_name if seller_id else "Unassigned",
+                     "seller_team": seller_team if seller_id else ""})
+    return rows
+
+
 def _lead_rows(db: Session, leads):
     headers = ["ID", "Name", "Email", "Phone", "Company", "Source", "Place/Area", "Referred By", "Status",
                "Assigned To", "Team", "Created", "Converted"]
@@ -185,6 +220,8 @@ def staff_performance_report(
 ):
     base = _visible_leads_query(db, current_user)
     base = _apply_common_filters(base, date_from, date_to, team_id, staff_id, source, None)
+    all_leads = base.all()
+
     staff_q = db.query(User).filter(User.role == RoleEnum.marketing_staff)
     if current_user.role == RoleEnum.team_leader:
         staff_q = staff_q.filter(User.team_id == current_user.team_id)
@@ -195,22 +232,45 @@ def staff_performance_report(
     staff_list = staff_q.order_by(User.full_name).all()
 
     sales = _sales_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
-    sales_by_staff = {}
-    for r in sales:
-        sales_by_staff.setdefault(r["seller_id"], []).append(r)
+    interests = _product_interest_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
 
-    # One row per staff/product sale attribution keeps this report directly
-    # usable for offline incentive calculation while retaining lead KPIs.
+    # Build one row per staff/product. This preserves product visibility even
+    # when a product is only an interested/quoted item; Units Sold and Revenue
+    # remain strictly conversion-based for incentive calculations.
+    by_staff_product = {}
+    for r in interests:
+        lp, lead = r["item"], r["lead"]
+        if not r["seller_id"]:
+            continue
+        product = lp.product
+        key = (r["seller_id"], lp.product_id, product.name if product else "", product.sku if product else "")
+        g = by_staff_product.setdefault(key, {"sold_units": 0, "revenue": 0, "sold_leads": set(), "dates": [], "converted_by": set(), "leads": set()})
+        g["leads"].add(lead.id)
+
+    for r in sales:
+        item, conversion, lead = r["item"], r["conversion"], r["lead"]
+        if not r["seller_id"]:
+            continue
+        key = (r["seller_id"], item.product_id, item.product_name, item.sku or "")
+        g = by_staff_product.setdefault(key, {"sold_units": 0, "revenue": 0, "sold_leads": set(), "dates": [], "converted_by": set(), "leads": set()})
+        g["sold_units"] += item.quantity
+        g["revenue"] += item.line_total
+        g["sold_leads"].add(lead.id)
+        if conversion.conversion_date:
+            g["dates"].append(conversion.conversion_date.strftime("%Y-%m-%d %H:%M"))
+        if conversion.converted_by:
+            g["converted_by"].add(conversion.converted_by.full_name)
+
     headers = ["Staff", "Team", "Total Leads", "New", "Follow-up", "Pending", "Converted", "Lost",
                "Conversion %", "Product", "SKU", "Units Sold", "Sales Revenue", "Conversion Date", "Lead ID", "Customer", "Converted By"]
     rows = []
     for staff in staff_list:
-        leads = [l for l in base.all() if l.assigned_to_id == staff.id]
+        leads = [l for l in all_leads if l.assigned_to_id == staff.id]
         total = len(leads)
-        converted = sum(1 for l in leads if l.status == LeadStatusEnum.converted)
+        converted = sum(l.status == LeadStatusEnum.converted for l in leads)
         conv_pct = round((converted / total) * 100, 1) if total else 0.0
-        staff_sales = sales_by_staff.get(staff.id, [])
-        if not staff_sales:
+        staff_keys = [k for k in by_staff_product if k[0] == staff.id]
+        if not staff_keys:
             rows.append([staff.full_name, staff.team.name if staff.team else "", total,
                          sum(l.status == LeadStatusEnum.new for l in leads),
                          sum(l.status == LeadStatusEnum.follow_up for l in leads),
@@ -218,17 +278,32 @@ def staff_performance_report(
                          sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct,
                          "", "", 0, 0, "", "", "", ""])
             continue
-        for r in staff_sales:
-            item, conversion, lead = r["item"], r["conversion"], r["lead"]
-            rows.append([staff.full_name, staff.team.name if staff.team else "", total,
-                         sum(l.status == LeadStatusEnum.new for l in leads),
-                         sum(l.status == LeadStatusEnum.follow_up for l in leads),
-                         sum(l.status == LeadStatusEnum.pending for l in leads), converted,
-                         sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct,
-                         item.product_name, item.sku or "", item.quantity, item.line_total,
-                         conversion.conversion_date.strftime("%Y-%m-%d %H:%M") if conversion.conversion_date else "",
-                         lead.id, f"{lead.first_name} {lead.last_name or ''}".strip(),
-                         conversion.converted_by.full_name if conversion.converted_by else ""])
+        for key in sorted(staff_keys, key=lambda k: (k[2].lower(), k[3].lower())):
+            product_name, sku = key[2], key[3]
+            g = by_staff_product[key]
+            # For incentive detail, show the conversion-level date/customer
+            # when there is a sale. Interest-only rows intentionally have no
+            # conversion date and zero sales.
+            sale_rows = [r for r in sales if r["seller_id"] == staff.id and r["item"].product_id == key[1]]
+            if sale_rows:
+                for r in sale_rows:
+                    item, conversion, lead = r["item"], r["conversion"], r["lead"]
+                    rows.append([staff.full_name, staff.team.name if staff.team else "", total,
+                                 sum(l.status == LeadStatusEnum.new for l in leads),
+                                 sum(l.status == LeadStatusEnum.follow_up for l in leads),
+                                 sum(l.status == LeadStatusEnum.pending for l in leads), converted,
+                                 sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct,
+                                 item.product_name, item.sku or "", item.quantity, item.line_total,
+                                 conversion.conversion_date.strftime("%Y-%m-%d %H:%M") if conversion.conversion_date else "",
+                                 lead.id, f"{lead.first_name} {lead.last_name or ''}".strip(),
+                                 conversion.converted_by.full_name if conversion.converted_by else ""])
+            else:
+                rows.append([staff.full_name, staff.team.name if staff.team else "", total,
+                             sum(l.status == LeadStatusEnum.new for l in leads),
+                             sum(l.status == LeadStatusEnum.follow_up for l in leads),
+                             sum(l.status == LeadStatusEnum.pending for l in leads), converted,
+                             sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct,
+                             product_name, sku, 0, 0, "", "", "", ""])
 
     if export == "xlsx":
         data = build_xlsx(headers, rows, title="staff_performance")
@@ -367,14 +442,14 @@ def email_report(payload: ReportEmailRequest, request: Request,
         for r in sales:
             item, lead = r["item"], r["lead"]
             key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_username"], r["seller_team"])
-            g = groups.setdefault(key, {"units": 0, "leads": set(), "revenue": 0, "currency": ""})
-            g["units"] += item.quantity; g["leads"].add(lead.id)
+            g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0, "currency": ""})
+            g["units"] += item.quantity; g["sold_leads"].add(lead.id)
             g["revenue"] += item.line_total
             if item.product and item.product.currency: g["currency"] = item.product.currency
         headers = ["Product", "SKU", "Sold By", "Team", "Converted Leads", "Units Sold", "Revenue", "Conversion Date Range"]
         rows = []
         for key, g in sorted(groups.items(), key=lambda x: (x[0][1].lower(), x[0][4].lower())):
-            rows.append([key[1], key[2], key[4], key[6], len(g["leads"]), g["units"], f'{g["currency"]} {g["revenue"]}'.strip(), f'{payload.date_from or "All"} to {payload.date_to or "All"}'])
+            rows.append([key[1], key[2], key[4], key[6], len(g["sold_leads"]), g["units"], f'{g["currency"]} {g["revenue"]}'.strip(), f'{payload.date_from or "All"} to {payload.date_to or "All"}'])
         title = "Product Performance & Sales Attribution Report"
     elif payload.report_type == "staff":
         base = _apply_common_filters(_visible_leads_query(db, current_user), payload.date_from, payload.date_to, payload.team_id, payload.staff_id, payload.source, None)
@@ -434,16 +509,28 @@ def product_performance_report(
     team_id: Optional[int] = None, staff_id: Optional[int] = None, source: Optional[str] = None,
     export: Optional[str] = Query(None), current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)):
-    # Product performance is now seller-aware. Each row represents one
-    # product/seller combination so the report answers exactly who sold what.
     sales = _sales_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
+    interests = _product_interest_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
+
+    # Include products attached to visible leads as well as products actually
+    # sold. A product with no conversion remains clearly distinguishable by
+    # zero Units Sold / Revenue, rather than disappearing from the report.
     groups = {}
+    for r in interests:
+        item = r["item"]
+        product = item.product
+        key = (item.product_id, product.name if product else "", product.sku if product else "",
+               r["seller_id"], r["seller_name"], r["seller_team"])
+        g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0, "currency": ""})
+        if product and product.currency:
+            g["currency"] = product.currency
+
     for r in sales:
         item, lead = r["item"], r["lead"]
-        key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_username"], r["seller_team"])
-        g = groups.setdefault(key, {"units": 0, "leads": set(), "revenue": 0, "currency": ""})
+        key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_team"])
+        g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0, "currency": ""})
         g["units"] += item.quantity
-        g["leads"].add(lead.id)
+        g["sold_leads"].add(lead.id)
         g["revenue"] += item.line_total
         if item.product and item.product.currency:
             g["currency"] = item.product.currency
@@ -451,7 +538,7 @@ def product_performance_report(
     headers = ["Product", "SKU", "Sold By", "Team", "Converted Leads", "Units Sold", "Revenue", "Conversion Date Range"]
     rows = []
     for key, g in sorted(groups.items(), key=lambda x: (x[0][1].lower(), x[0][4].lower())):
-        rows.append([key[1], key[2], key[4], key[6], len(g["leads"]), g["units"],
+        rows.append([key[1], key[2], key[4], key[5], len(g["sold_leads"]), g["units"],
                      f'{g["currency"]} {g["revenue"]}'.strip(),
                      f'{date_from or "All"} to {date_to or "All"}'])
 

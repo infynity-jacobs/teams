@@ -1,3 +1,10 @@
+# v2.6.1 — Sales Attribution Report Fix
+
+- Product reports now retain product rows from lead-product interests instead of becoming empty when no conversion line exists.
+- Staff reports now show assigned staff/product combinations with zero sales until a conversion is recorded.
+- Sold units and revenue remain strictly conversion-based for incentive calculations.
+- Historical seller attribution remains separate from the actual converter.
+
 # v2.6.0 — Sales Attribution & Incentive Reporting
 
 - Added historical seller attribution to conversions.

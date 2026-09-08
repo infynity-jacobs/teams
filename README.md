@@ -4,9 +4,9 @@ PDF reports now render configured SVG logos by converting them to an in-memory P
 
 # Lead CRM — Marketing Lead Management & Conversion Application
 
-## v2.6.0 Sales Attribution & Incentive Reporting
+## v2.6.1 Sales Attribution Report Fix
 
-Version 2.6.0 extends the existing product/conversion reporting so offline incentive calculations can identify **which marketing staff sold which products**. At conversion time, the application snapshots the lead's assigned marketing staff as the seller while retaining the actual user who performed the conversion separately.
+Version 2.6.1 extends the existing product/conversion reporting so offline incentive calculations can identify **which marketing staff sold which products**. At conversion time, the application snapshots the lead's assigned marketing staff as the seller while retaining the actual user who performed the conversion separately.
 
 Reports now provide:
 - Product → Sold By → Team → Units Sold → Converted Leads → Revenue

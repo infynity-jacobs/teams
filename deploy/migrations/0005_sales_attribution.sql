@@ -1,4 +1,4 @@
--- Lead CRM 2.6.0: preserve sales/incentive attribution at conversion time.
+-- Lead CRM 2.6.0 / 2.6.1: preserve sales/incentive attribution at conversion time.
 -- sold_by_id identifies the assigned marketing staff at the time of sale;
 -- converted_by_id remains the actual user who performed the conversion.
 
