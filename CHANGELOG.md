@@ -1,4 +1,12 @@
-# v2.6.3 — Reports clarity improvement
+# Changelog
+
+## 2.6.4
+- Fixed Product Performance filtering for selected staff.
+- Product Performance now includes product-interest rows associated with the selected staff's leads, even when no conversion item has been recorded yet.
+- Added `Lead Customers` to distinguish product interest from actual converted customers.
+- `Converted Customers`, `Units Sold`, and `Sales Revenue` remain based only on actual conversion items and are authoritative for incentives.
+- Kept emailed Product Performance aligned with the on-screen report.
+
 
 - Separated Staff Performance into a clean KPI summary.
 - Added Incentive Sales Detail report for offline incentive calculation.

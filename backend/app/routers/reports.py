@@ -421,14 +421,21 @@ def email_report(payload: ReportEmailRequest, request: Request,
         raise HTTPException(400, "At least one recipient is required")
     if payload.report_type == "products":
         sales = _sales_rows(db, current_user, payload.date_from, payload.date_to, payload.team_id, payload.staff_id, payload.source)
+        interests = _product_interest_rows(db, current_user, payload.date_from, payload.date_to, payload.team_id, payload.staff_id, payload.source)
         groups = {}
+        for r in interests:
+            lp, lead = r["item"], r["lead"]
+            product = lp.product
+            key = (lp.product_id, product.name if product else "Unknown Product", product.sku or "" if product else "", r["seller_id"], r["seller_name"], r["seller_team"])
+            g = groups.setdefault(key, {"lead_ids": set(), "sold_leads": set(), "units": 0, "revenue": 0})
+            g["lead_ids"].add(lead.id)
         for r in sales:
             item, lead = r["item"], r["lead"]
             key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_team"])
-            g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0})
-            g["units"] += item.quantity; g["sold_leads"].add(lead.id); g["revenue"] += item.line_total
-        headers = ["Product", "SKU", "Sold By", "Team", "Converted Customers", "Units Sold", "Sales Revenue"]
-        rows = [[key[1], key[2], key[4], key[5], len(g["sold_leads"]), g["units"], g["revenue"]]
+            g = groups.setdefault(key, {"lead_ids": set(), "sold_leads": set(), "units": 0, "revenue": 0})
+            g["lead_ids"].add(lead.id); g["sold_leads"].add(lead.id); g["units"] += item.quantity; g["revenue"] += item.line_total
+        headers = ["Product", "SKU", "Sold By", "Team", "Lead Customers", "Converted Customers", "Units Sold", "Sales Revenue"]
+        rows = [[key[1], key[2], key[4], key[5], len(g["lead_ids"]), len(g["sold_leads"]), g["units"], g["revenue"]]
                 for key, g in sorted(groups.items(), key=lambda x: (x[0][1].lower(), x[0][4].lower()))]
         title = "Product Performance & Sales Report"
     elif payload.report_type == "staff":
@@ -503,21 +510,40 @@ def product_performance_report(
     team_id: Optional[int] = None, staff_id: Optional[int] = None, source: Optional[str] = None,
     export: Optional[str] = Query(None), current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)):
-    """Aggregate actual converted sales by product and attributed staff."""
+    """Aggregate products by staff, while keeping actual sales authoritative.
+
+    A product can exist on a lead before conversion.  Therefore, when a staff
+    filter is selected, include those product-interest rows as well so the
+    report remains useful for checking what products are associated with that
+    agent's leads.  Converted customers, units sold and revenue are populated
+    only from conversion items.
+    """
     sales = _sales_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
+    interests = _product_interest_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
     groups = {}
+
+    for r in interests:
+        lp, lead = r["item"], r["lead"]
+        product = lp.product
+        product_name = product.name if product else "Unknown Product"
+        sku = product.sku or "" if product else ""
+        key = (lp.product_id, product_name, sku, r["seller_id"], r["seller_name"], r["seller_team"])
+        g = groups.setdefault(key, {"lead_ids": set(), "sold_leads": set(), "units": 0, "revenue": 0})
+        g["lead_ids"].add(lead.id)
+
     for r in sales:
         item, lead = r["item"], r["lead"]
         key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_team"])
-        g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0})
-        g["units"] += item.quantity
+        g = groups.setdefault(key, {"lead_ids": set(), "sold_leads": set(), "units": 0, "revenue": 0})
+        g["lead_ids"].add(lead.id)
         g["sold_leads"].add(lead.id)
+        g["units"] += item.quantity
         g["revenue"] += item.line_total
 
-    headers = ["Product", "SKU", "Sold By", "Team", "Converted Customers", "Units Sold", "Sales Revenue"]
+    headers = ["Product", "SKU", "Sold By", "Team", "Lead Customers", "Converted Customers", "Units Sold", "Sales Revenue"]
     rows = []
     for key, g in sorted(groups.items(), key=lambda x: (x[0][1].lower(), x[0][4].lower())):
-        rows.append([key[1], key[2], key[4], key[5], len(g["sold_leads"]), g["units"], g["revenue"]])
+        rows.append([key[1], key[2], key[4], key[5], len(g["lead_ids"]), len(g["sold_leads"]), g["units"], g["revenue"]])
 
     if export == "xlsx":
         data = build_xlsx(headers, rows, title="product_performance")
