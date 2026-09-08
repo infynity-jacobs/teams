@@ -320,12 +320,13 @@ Views.leads = async function (root) {
       </div>
     </div>
     <div class="card">
-      <div class="table-responsive">
+      <div class="table-responsive leads-desktop-list">
         <table class="table table-hover mb-0">
           <thead class="table-light"><tr><th>Name</th><th>Email / Phone</th><th>Area</th><th>Products</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Created</th></tr></thead>
           <tbody id="leads-tbody"><tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
         </table>
       </div>
+      <div id="leads-mobile-list" class="leads-mobile-list"></div>
       <div class="card-footer bg-white d-flex justify-content-between align-items-center">
         <span class="text-muted small" id="leads-count"></span>
         <div id="leads-pagination"></div>
@@ -381,6 +382,14 @@ Views._loadLeadsTable = async function (page) {
       <td>${escapeHtml(l.team_name || "-")}</td>
       <td>${fmtDate(l.created_at)}</td>
     </tr>`).join("") || `<tr><td colspan="8" class="text-center text-muted py-4">No leads found</td></tr>`;
+  const cards = qs("#leads-mobile-list");
+  if (cards) cards.innerHTML = data.items.map(l => `
+    <article class="lead-mobile-card" onclick="location.hash='#/leads/${l.id}'">
+      <div class="lead-mobile-head"><div><strong>${escapeHtml(l.first_name)} ${escapeHtml(l.last_name || "")}</strong><div class="small text-muted">${escapeHtml(l.phone || l.email || "-")}</div></div>${statusBadge(l.status)}</div>
+      <div class="lead-mobile-meta"><span><i class="bi bi-geo-alt"></i>${escapeHtml(l.place_area || "Area not set")}</span><span><i class="bi bi-people"></i>${escapeHtml(l.team_name || "No team")}</span><span><i class="bi bi-person-check"></i>${escapeHtml(l.assigned_to_name || "Unassigned")}</span></div>
+      <div class="lead-mobile-products"><span class="text-muted small">Products</span><div>${l.product_names?.length ? l.product_names.map(p => `<span class="badge bg-light text-dark border me-1 mb-1">${escapeHtml(p)}</span>`).join("") : '<span class="small text-muted">None</span>'}</div></div>
+      <div class="small text-muted mt-2">Created ${fmtDate(l.created_at)} <i class="bi bi-chevron-right float-end"></i></div>
+    </article>`).join("") || `<div class="text-center text-muted py-4">No leads found</div>`;
 
   qs("#leads-count").textContent = `${data.total} lead(s) found`;
   const pageSize = 20;
@@ -1408,12 +1417,16 @@ Views.reports = async function (root) {
     out.innerHTML = `<div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>`;
     try {
       const data = await apiFetch(`${type.endpoint}?${params.toString()}`);
+      const mobileCards = data.rows.map(r => `<article class="report-mobile-card">${r.map((c,i) => `<div class="report-mobile-field"><span>${escapeHtml(data.headers[i] || "")}</span><strong>${escapeHtml(c)}</strong></div>`).join("")}</article>`).join("") || `<div class="text-center text-muted py-4">No data</div>`;
       out.innerHTML = `
         <h5>${type.label}</h5>
-        <table class="table table-sm table-bordered report-table">
-          <thead class="table-light"><tr>${data.headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
-          <tbody>${data.rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${data.headers.length}" class="text-center text-muted">No data</td></tr>`}</tbody>
-        </table>`;
+        <div class="report-desktop-table">
+          <table class="table table-sm table-bordered report-table">
+            <thead class="table-light"><tr>${data.headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+            <tbody>${data.rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${data.headers.length}" class="text-center text-muted">No data</td></tr>`}</tbody>
+          </table>
+        </div>
+        <div class="report-mobile-list">${mobileCards}</div>`;
     } catch (e) { out.innerHTML = `<div class="alert alert-danger">${escapeHtml(e.detail || "Failed to load report")}</div>`; }
   });
 

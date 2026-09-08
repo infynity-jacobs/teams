@@ -26,6 +26,26 @@ function setActiveNav() {
   qsa("#nav-links .nav-link").forEach(a => {
     a.classList.toggle("active", location.hash.startsWith(a.getAttribute("href")));
   });
+  qsa("[data-mobile-nav]").forEach(a => {
+    const target = a.getAttribute("data-mobile-nav");
+    const active = target === "#/leads" ? location.hash.startsWith("#/leads") : location.hash.startsWith(target);
+    a.classList.toggle("active", active);
+  });
+}
+
+function setupMobileNavigation() {
+  const more = qs("#mobile-more-btn");
+  more?.addEventListener("click", () => {
+    const nav = bootstrap.Collapse.getOrCreateInstance(qs("#navMain"), {toggle:false});
+    nav.show();
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+  qs(".mobile-nav-add")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (!Auth.isLoggedIn()) return;
+    location.hash = "#/leads";
+    setTimeout(() => qs("#new-lead-btn")?.click(), 0);
+  });
 }
 
 async function loadPublicBranding() {
@@ -124,6 +144,7 @@ async function router() {
   qs("#app-shell").classList.remove("d-none");
   renderNav();
   setActiveNav();
+  setupMobileNavigation();
 
   const root = qs("#view-root");
   const hashPath = hash.slice(1).split("?")[0];
