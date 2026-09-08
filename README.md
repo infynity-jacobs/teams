@@ -1,3 +1,13 @@
+## v2.7.0 Mobile UX
+
+Version 2.7.0 is the complete mobile-friendly UI release. Desktop layouts remain table-oriented while phone layouts use cards, stacked filters, touch-sized actions, mobile navigation and full-screen forms/modals.
+
+### Mobile phases included
+- Phase 1: Core mobile UX — navigation, Leads cards, Lead Details actions, New/Edit Lead forms, full-screen modals, touch targets and sticky actions.
+- Phase 2: Reports — responsive filters, report cards, mobile export/action menu and Incentive Sales Detail presentation.
+- Phase 3: Dashboard — responsive KPI cards/charts, follow-up cards and recent-lead cards.
+- Phase 4: Polish — loading/empty states, safe-area support, reduced motion, overflow prevention and mobile interaction polish.
+
 ## v2.6.5 Product Performance Accuracy Fix
 
 Version 2.6.5 clarifies Product Performance & Sales by distinguishing products attached to leads from actual recorded sales. The report now shows Lead Customers, Converted Leads, Sold Customers, Units Sold, and Sales Revenue. Converted Leads are based on the lead lifecycle status; Sold Customers, Units Sold, and Sales Revenue are based only on Conversion/ConversionItem records and remain the authoritative incentive figures.

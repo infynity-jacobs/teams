@@ -142,10 +142,11 @@ Views.dashboard = async function (root) {
         <strong><i class="bi bi-calendar2-week me-1"></i> Follow-up Queue</strong>
         <a href="#/leads?status=follow_up" class="small">View follow-up leads &rarr;</a>
       </div>
-      <div class="table-responsive"><table class="table table-hover mb-0">
+      <div class="desktop-only-mobile table-responsive"><table class="table table-hover mb-0">
         <thead class="table-light"><tr><th>When</th><th>Lead</th><th>Type</th><th>Assigned To</th><th>Status</th></tr></thead>
         <tbody>${followUps.overdue.concat(followUps.today).slice(0,10).map(f => `<tr class="clickable-row" onclick="location.hash='#/leads/${f.lead_id}'"><td>${fmtDateTime(f.scheduled_at)}</td><td><strong>${escapeHtml(f.lead_name)}</strong><div class="small text-muted">${escapeHtml(f.company || "")}</div></td><td class="text-capitalize">${escapeHtml(f.follow_up_type)}</td><td>${escapeHtml(f.staff_name || "Unassigned")}</td><td>${statusBadge(f.status)}</td></tr>`).join("") || `<tr><td colspan="5" class="text-center text-muted py-3">No follow-ups due today.</td></tr>`}</tbody>
       </table></div>
+      <div class="mobile-only-mobile p-2">${followUps.overdue.concat(followUps.today).slice(0,10).map(f => `<button type="button" class="mobile-lead-card text-start w-100" onclick="location.hash='#/leads/${f.lead_id}'"><div class="d-flex justify-content-between gap-2"><strong>${escapeHtml(f.lead_name)}</strong>${statusBadge(f.status)}</div><div class="small text-muted mt-1">${fmtDateTime(f.scheduled_at)} · ${escapeHtml(f.follow_up_type)}</div><div class="small mt-1">Assigned: ${escapeHtml(f.staff_name || "Unassigned")}</div></button>`).join("") || `<div class="empty-state py-3"><i class="bi bi-calendar-check"></i><strong>No follow-ups due today.</strong></div>`}</div>
     </div>
 
     <div class="row g-3 mb-4">
@@ -204,7 +205,7 @@ Views.dashboard = async function (root) {
         <strong>Recent Leads</strong>
         <a href="#/leads" class="small">View all &rarr;</a>
       </div>
-      <div class="table-responsive">
+      <div class="desktop-only-mobile table-responsive">
         <table class="table table-hover mb-0">
           <thead class="table-light"><tr><th>Name</th><th>Company</th><th>Source</th><th>Status</th><th>Assigned To</th><th>Created</th></tr></thead>
           <tbody>
@@ -219,6 +220,9 @@ Views.dashboard = async function (root) {
               </tr>`).join("") || `<tr><td colspan="6" class="text-center text-muted py-4">No leads yet</td></tr>`}
           </tbody>
         </table>
+      </div>
+      <div class="mobile-only-mobile p-2">
+        ${myLeads.items.map(l => `<button type="button" class="mobile-lead-card text-start w-100" onclick="location.hash='#/leads/${l.id}'"><div class="d-flex justify-content-between gap-2"><strong>${escapeHtml(l.first_name)} ${escapeHtml(l.last_name || "")}</strong>${statusBadge(l.status)}</div><div class="small text-muted mt-1">${escapeHtml(l.phone || l.email || "No contact information")}</div><div class="mobile-lead-meta"><span><i class="bi bi-person-check me-1"></i>${escapeHtml(l.assigned_to_name || "Unassigned")}</span><span>${fmtDate(l.created_at)}</span></div></button>`).join("") || `<div class="empty-state">No leads yet.</div>`}
       </div>
     </div>
   `;
@@ -237,7 +241,7 @@ Views.followups = async function (root) {
   const rows = items => items.map(f => `<tr class="clickable-row" onclick="location.hash='#/leads/${f.lead_id}'"><td>${fmtDateTime(f.scheduled_at)}</td><td><strong>${escapeHtml(f.lead_name)}</strong><div class="small text-muted">${escapeHtml(f.company || "")}</div></td><td class="text-capitalize">${escapeHtml(f.follow_up_type)}</td><td>${escapeHtml(f.staff_name || "Unassigned")}</td><td>${statusBadge(f.status)}</td><td><button class="btn btn-sm btn-outline-success complete-queue-followup" data-lead="${f.lead_id}" data-id="${f.id}" onclick="event.stopPropagation()"><i class="bi bi-check2"></i> Complete</button></td></tr>`).join("") || `<tr><td colspan="6" class="text-center text-muted py-4">None</td></tr>`;
   root.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-4"><div><h4 class="mb-1">Follow-up Queue</h4><div class="text-muted small">Track overdue, today's and upcoming customer actions.</div></div><a href="#/leads?status=follow_up" class="btn btn-outline-primary btn-sm">Follow-up Leads</a></div>
     <div class="row g-3 mb-4">${[["Overdue",data.counts.overdue,"danger","bi-exclamation-triangle"],["Today",data.counts.today,"warning","bi-calendar-event"],["Upcoming",data.counts.upcoming,"primary","bi-calendar-check"],["Completed Today",data.counts.completed_today,"success","bi-check2-all"]].map(x=>`<div class="col-6 col-md-3"><div class="card stat-card p-3 h-100"><i class="bi ${x[3]} text-${x[2]} fs-4"></i><div class="stat-value mt-2">${x[1]}</div><div class="text-muted small">${x[0]}</div></div></div>`).join("")}</div>
-    ${sections.map(sec=>`<div class="card mb-4"><div class="card-header bg-white"><strong><i class="bi bi-calendar2-week me-1"></i>${sec[0]} Follow-ups</strong></div><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>When</th><th>Lead</th><th>Type</th><th>Assigned To</th><th>Lead Status</th><th>Action</th></tr></thead><tbody>${rows(sec[1])}</tbody></table></div></div>`).join("")}`;
+    ${sections.map(sec=>`<div class="card mb-4"><div class="card-header bg-white"><strong><i class="bi bi-calendar2-week me-1"></i>${sec[0]} Follow-ups</strong></div><div class="desktop-only-mobile table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>When</th><th>Lead</th><th>Type</th><th>Assigned To</th><th>Lead Status</th><th>Action</th></tr></thead><tbody>${rows(sec[1])}</tbody></table></div><div class="mobile-only-mobile p-2">${sec[1].map(f=>`<article class="mobile-followup-card"><button type="button" class="stretched-link-overlay" onclick="location.hash='#/leads/${f.lead_id}'" aria-label="Open ${escapeHtml(f.lead_name)}"></button><div class="d-flex justify-content-between gap-2"><strong>${escapeHtml(f.lead_name)}</strong>${statusBadge(f.status)}</div><div class="small text-muted mt-1">${fmtDateTime(f.scheduled_at)} · ${escapeHtml(f.follow_up_type)}</div><div class="small mt-2"><strong>Assigned:</strong> ${escapeHtml(f.staff_name || "Unassigned")}</div><button class="btn btn-sm btn-outline-success mt-2 complete-queue-followup" data-lead="${f.lead_id}" data-id="${f.id}"><i class="bi bi-check2 me-1"></i>Complete</button></article>`).join("") || `<div class="empty-state py-3"><i class="bi bi-calendar-check"></i><strong>None</strong></div>`}</div></div>`).join("")}`;
   qsa(".complete-queue-followup").forEach(btn=>btn.addEventListener("click",async()=>{try{await apiFetch(`/leads/${btn.dataset.lead}/follow-ups/${btn.dataset.id}`,{method:"PUT",body:{completed_at:new Date().toISOString()}});showToast("Follow-up completed");Views.followups(root);}catch(e){showToast(e.detail||"Failed to complete follow-up","danger");}}));
 };
 
@@ -303,7 +307,7 @@ Views.leads = async function (root) {
     </div>
     <div class="card mb-3">
       <div class="card-body">
-        <div class="row g-2">
+        <div class="row g-2 report-filters">
           <div class="col-md-3"><input class="form-control form-control-sm" id="f-search" placeholder="Search name, email, phone..."></div>
           <div class="col-md-2">
             <select class="form-select form-select-sm" id="f-status"><option value="">Any Status</option>${STATUS_OPTIONS.map(s => `<option value="${s}">${s.replace("_", " ")}</option>`).join("")}</select>
@@ -320,13 +324,15 @@ Views.leads = async function (root) {
       </div>
     </div>
     <div class="card">
-      <div class="table-responsive leads-desktop-list">
-        <table class="table table-hover mb-0">
-          <thead class="table-light"><tr><th>Name</th><th>Email / Phone</th><th>Area</th><th>Products</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Created</th></tr></thead>
-          <tbody id="leads-tbody"><tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
-        </table>
+      <div class="table-responsive">
+        <div class="desktop-only-mobile">
+          <table class="table table-hover mb-0">
+            <thead class="table-light"><tr><th>Name</th><th>Email / Phone</th><th>Area</th><th>Products</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Created</th></tr></thead>
+            <tbody id="leads-tbody"><tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
+          </table>
+        </div>
+        <div class="mobile-only-mobile p-2" id="leads-cards"><div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div></div>
       </div>
-      <div id="leads-mobile-list" class="leads-mobile-list"></div>
       <div class="card-footer bg-white d-flex justify-content-between align-items-center">
         <span class="text-muted small" id="leads-count"></span>
         <div id="leads-pagination"></div>
@@ -382,14 +388,15 @@ Views._loadLeadsTable = async function (page) {
       <td>${escapeHtml(l.team_name || "-")}</td>
       <td>${fmtDate(l.created_at)}</td>
     </tr>`).join("") || `<tr><td colspan="8" class="text-center text-muted py-4">No leads found</td></tr>`;
-  const cards = qs("#leads-mobile-list");
-  if (cards) cards.innerHTML = data.items.map(l => `
-    <article class="lead-mobile-card" onclick="location.hash='#/leads/${l.id}'">
-      <div class="lead-mobile-head"><div><strong>${escapeHtml(l.first_name)} ${escapeHtml(l.last_name || "")}</strong><div class="small text-muted">${escapeHtml(l.phone || l.email || "-")}</div></div>${statusBadge(l.status)}</div>
-      <div class="lead-mobile-meta"><span><i class="bi bi-geo-alt"></i>${escapeHtml(l.place_area || "Area not set")}</span><span><i class="bi bi-people"></i>${escapeHtml(l.team_name || "No team")}</span><span><i class="bi bi-person-check"></i>${escapeHtml(l.assigned_to_name || "Unassigned")}</span></div>
-      <div class="lead-mobile-products"><span class="text-muted small">Products</span><div>${l.product_names?.length ? l.product_names.map(p => `<span class="badge bg-light text-dark border me-1 mb-1">${escapeHtml(p)}</span>`).join("") : '<span class="small text-muted">None</span>'}</div></div>
-      <div class="small text-muted mt-2">Created ${fmtDate(l.created_at)} <i class="bi bi-chevron-right float-end"></i></div>
-    </article>`).join("") || `<div class="text-center text-muted py-4">No leads found</div>`;
+  const cards = data.items.map(l => `<button type="button" class="mobile-lead-card text-start w-100" onclick="location.hash='#/leads/${l.id}'">
+    <div class="d-flex justify-content-between align-items-start gap-2"><strong class="fs-6">${escapeHtml(l.first_name)} ${escapeHtml(l.last_name || "")}</strong>${statusBadge(l.status)}</div>
+    <div class="small text-muted mt-1">${escapeHtml(l.phone || l.email || "No contact information")}</div>
+    <div class="mobile-lead-meta"><span><i class="bi bi-geo-alt me-1"></i>${escapeHtml(l.place_area || "No area")}</span><span><i class="bi bi-people me-1"></i>${escapeHtml(l.team_name || "-")}</span></div>
+    <div class="small mt-2"><strong>Assigned:</strong> ${escapeHtml(l.assigned_to_name || "Unassigned")}</div>
+    <div class="small mt-1"><strong>Products:</strong> ${l.product_names?.length ? l.product_names.map(p => `<span class="badge bg-light text-dark border me-1">${escapeHtml(p)}</span>`).join("") : "None"}</div>
+    <div class="small text-muted mt-2">Created ${fmtDate(l.created_at)} <i class="bi bi-chevron-right float-end"></i></div>
+  </button>`).join("");
+  qs("#leads-cards").innerHTML = cards || `<div class="empty-state"><i class="bi bi-people"></i><strong>No leads found</strong><span>Try changing your filters.</span></div>`;
 
   qs("#leads-count").textContent = `${data.total} lead(s) found`;
   const pageSize = 20;
@@ -437,6 +444,12 @@ Views.leadDetail = async function (root, leadId) {
         <button class="btn btn-outline-secondary btn-sm" id="edit-lead-btn"><i class="bi bi-pencil"></i> Edit</button>
         ${user.role === "super_admin" ? '<button class="btn btn-outline-danger btn-sm" id="delete-lead-btn"><i class="bi bi-trash"></i> Delete</button>' : ""}
       </div>
+    </div>
+    <div class="mobile-sticky-actions d-md-none">
+      <a class="btn btn-outline-secondary" href="#/leads"><i class="bi bi-arrow-left"></i><span>Back</span></a>
+      ${lead.phone ? `<a class="btn btn-outline-primary" href="tel:${escapeHtml(lead.phone)}"><i class="bi bi-telephone"></i><span>Call</span></a>` : ""}
+      <button class="btn btn-primary" id="mobile-edit-lead-btn"><i class="bi bi-pencil"></i><span>Edit</span></button>
+      ${lead.status !== "converted" ? `<button class="btn btn-success" id="mobile-followup-btn"><i class="bi bi-calendar-plus"></i><span>Follow-up</span></button>` : ""}
     </div>
     <div class="row g-3">
       <div class="col-lg-4">
@@ -684,6 +697,8 @@ Views.leadDetail = async function (root, leadId) {
     const teams = await apiFetch("/teams");
     Views._leadFormModal(lead, teams, staffList);
   });
+  qs("#mobile-edit-lead-btn")?.addEventListener("click", () => Views._leadFormModal(lead, Views._teams || [], staffList));
+  qs("#mobile-followup-btn")?.addEventListener("click", () => qs("#add-followup-btn")?.click());
 
   qs("#delete-lead-btn")?.addEventListener("click", async () => {
     if (!confirm(`Permanently delete this lead? This removes its follow-ups, products, conversion and status history.`)) return;
@@ -1356,6 +1371,12 @@ const REPORT_TYPES = [
   { key: "products", label: "Product Performance & Sales", endpoint: "/reports/products", params: {} },
 ];
 
+function renderResponsiveReport(data, title) {
+  const desktop = `<div class="desktop-only-mobile table-responsive"><table class="table table-sm table-bordered report-table mb-0"><thead class="table-light"><tr>${data.headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${data.rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${data.headers.length}" class="text-center text-muted py-3">No data</td></tr>`}</tbody></table></div>`;
+  const cards = data.rows.map(r => `<article class="mobile-report-card">${data.headers.map((h,i) => `<div class="mobile-report-field"><span>${escapeHtml(h)}</span><strong>${escapeHtml(r[i] ?? "-")}</strong></div>`).join("")}</article>`).join("") || `<div class="empty-state"><i class="bi bi-bar-chart"></i><strong>No data available</strong><span>Try changing the filters.</span></div>`;
+  return `<h5 class="mb-3">${escapeHtml(title)}</h5>${desktop}<div class="mobile-only-mobile">${cards}</div>`;
+}
+
 Views.reports = async function (root) {
   const teams = await apiFetch("/teams");
   let staffList = [];
@@ -1382,12 +1403,21 @@ Views.reports = async function (root) {
           </div>
           <div class="col-md-2"><label class="form-label small">Source</label><input class="form-control form-control-sm" id="rpt-source" placeholder="Any source"></div>
         </div>
-        <div class="mt-3 d-flex gap-2">
+        <div class="mt-3 d-flex gap-2 report-actions">
           <button class="btn btn-primary btn-sm" id="run-report-btn"><i class="bi bi-search"></i> Run Report</button>
           <button class="btn btn-outline-secondary btn-sm" id="export-xlsx-btn"><i class="bi bi-file-earmark-excel"></i> Export XLSX</button>
           <button class="btn btn-outline-secondary btn-sm" id="export-pdf-btn"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
           <button class="btn btn-outline-secondary btn-sm" id="print-btn"><i class="bi bi-printer"></i> Print</button>
           <button class="btn btn-outline-primary btn-sm" id="email-report-btn"><i class="bi bi-envelope"></i> Email Report</button>
+          <div class="dropdown mobile-report-menu">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i> Actions</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><button class="dropdown-item" type="button" id="mobile-export-xlsx"><i class="bi bi-file-earmark-excel me-2"></i>Export XLSX</button></li>
+              <li><button class="dropdown-item" type="button" id="mobile-export-pdf"><i class="bi bi-file-earmark-pdf me-2"></i>Export PDF</button></li>
+              <li><button class="dropdown-item" type="button" id="mobile-print"><i class="bi bi-printer me-2"></i>Print</button></li>
+              <li><button class="dropdown-item" type="button" id="mobile-email-report"><i class="bi bi-envelope me-2"></i>Email Report</button></li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -1417,16 +1447,7 @@ Views.reports = async function (root) {
     out.innerHTML = `<div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>`;
     try {
       const data = await apiFetch(`${type.endpoint}?${params.toString()}`);
-      const mobileCards = data.rows.map(r => `<article class="report-mobile-card">${r.map((c,i) => `<div class="report-mobile-field"><span>${escapeHtml(data.headers[i] || "")}</span><strong>${escapeHtml(c)}</strong></div>`).join("")}</article>`).join("") || `<div class="text-center text-muted py-4">No data</div>`;
-      out.innerHTML = `
-        <h5>${type.label}</h5>
-        <div class="report-desktop-table">
-          <table class="table table-sm table-bordered report-table">
-            <thead class="table-light"><tr>${data.headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
-            <tbody>${data.rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${data.headers.length}" class="text-center text-muted">No data</td></tr>`}</tbody>
-          </table>
-        </div>
-        <div class="report-mobile-list">${mobileCards}</div>`;
+      out.innerHTML = renderResponsiveReport(data, type.label);
     } catch (e) { out.innerHTML = `<div class="alert alert-danger">${escapeHtml(e.detail || "Failed to load report")}</div>`; }
   });
 
@@ -1478,6 +1499,11 @@ Views.reports = async function (root) {
       catch(e){err.textContent=e.detail||"Failed to email report";err.classList.remove("d-none");}
     });
   });
+
+  qs("#mobile-export-xlsx")?.addEventListener("click", () => qs("#export-xlsx-btn")?.click());
+  qs("#mobile-export-pdf")?.addEventListener("click", () => qs("#export-pdf-btn")?.click());
+  qs("#mobile-print")?.addEventListener("click", () => qs("#print-btn")?.click());
+  qs("#mobile-email-report")?.addEventListener("click", () => qs("#email-report-btn")?.click());
 
   if (requestedType && REPORT_TYPES.some(r => r.key === requestedType)) qs("#run-report-btn").click();
 };

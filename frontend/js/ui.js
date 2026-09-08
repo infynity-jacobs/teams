@@ -56,7 +56,7 @@ function openModal(html, { size = "" } = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = "modal fade";
   wrapper.tabIndex = -1;
-  wrapper.innerHTML = `<div class="modal-dialog ${size}"><div class="modal-content">${html}</div></div>`;
+  wrapper.innerHTML = `<div class="modal-dialog ${size} modal-fullscreen-sm-down"><div class="modal-content">${html}</div></div>`;
   document.body.appendChild(wrapper);
   const modal = new bootstrap.Modal(wrapper);
   wrapper.addEventListener("hidden.bs.modal", () => wrapper.remove());

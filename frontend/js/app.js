@@ -22,29 +22,27 @@ function renderNav() {
   qs("#nav-user").textContent = `${user.full_name} (${roleLabel(user.role)})`;
 }
 
+function renderMobileNav() {
+  const user = Auth.getUser();
+  const items = [
+    { hash: "#/dashboard", label: "Home", icon: "bi-house" },
+    { hash: "#/leads", label: "Leads", icon: "bi-people" },
+    { hash: "#/leads?new=1", label: "New Lead", icon: "bi-plus-lg", primary: true },
+    { hash: "#/reports", label: "Reports", icon: "bi-bar-chart" },
+    { hash: "#/profile", label: "More", icon: "bi-three-dots" },
+  ];
+  const nav = qs("#mobile-bottom-nav");
+  if (!nav) return;
+  nav.innerHTML = items.map(item => {
+    const base = item.hash.split("?")[0];
+    const active = base === "#/dashboard" ? location.hash.startsWith("#/dashboard") : base === "#/leads" ? location.hash.startsWith("#/leads") : base === "#/reports" ? location.hash.startsWith("#/reports") : base === "#/profile" ? location.hash.startsWith("#/profile") : false;
+    return `<a href="${item.hash}" class="mobile-bottom-item ${item.primary ? "mobile-bottom-primary" : ""} ${active ? "active" : ""}"><span class="mobile-bottom-icon"><i class="bi ${item.icon}"></i></span><span>${item.label}</span></a>`;
+  }).join("");
+}
+
 function setActiveNav() {
   qsa("#nav-links .nav-link").forEach(a => {
     a.classList.toggle("active", location.hash.startsWith(a.getAttribute("href")));
-  });
-  qsa("[data-mobile-nav]").forEach(a => {
-    const target = a.getAttribute("data-mobile-nav");
-    const active = target === "#/leads" ? location.hash.startsWith("#/leads") : location.hash.startsWith(target);
-    a.classList.toggle("active", active);
-  });
-}
-
-function setupMobileNavigation() {
-  const more = qs("#mobile-more-btn");
-  more?.addEventListener("click", () => {
-    const nav = bootstrap.Collapse.getOrCreateInstance(qs("#navMain"), {toggle:false});
-    nav.show();
-    window.scrollTo({top:0, behavior:"smooth"});
-  });
-  qs(".mobile-nav-add")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    if (!Auth.isLoggedIn()) return;
-    location.hash = "#/leads";
-    setTimeout(() => qs("#new-lead-btn")?.click(), 0);
   });
 }
 
@@ -143,8 +141,8 @@ async function router() {
   qs("#login-screen").classList.add("d-none");
   qs("#app-shell").classList.remove("d-none");
   renderNav();
+  renderMobileNav();
   setActiveNav();
-  setupMobileNavigation();
 
   const root = qs("#view-root");
   const hashPath = hash.slice(1).split("?")[0];

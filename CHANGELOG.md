@@ -1,13 +1,13 @@
+## v2.7.0
+- Complete mobile UX release covering core navigation, leads, lead details, forms, reports, dashboard responsiveness, and mobile polish.
+- Added mobile bottom navigation with Home, Leads, New Lead, Reports and More/Profile access.
+- Added mobile lead cards while preserving the desktop Leads table.
+- Added responsive report cards, mobile filters/actions and full-screen mobile modals.
+- Added mobile follow-up cards and responsive dashboard recent-lead presentation.
+- Added sticky lead actions, touch-friendly controls, safe-area support, reduced-motion support, empty states and horizontal-overflow prevention.
+- New Lead shortcut opens the New Lead form directly from mobile navigation.
+
 # Changelog
-
-## 2.7.0 - Mobile-friendly UI
-- Added responsive mobile bottom navigation for Home, Leads, New Lead, Reports and More.
-- Added mobile card layout for Leads while preserving the desktop table.
-- Added mobile card layout for all report output while preserving desktop tables and exports.
-- Improved mobile filter/action layout and touch target sizing.
-- Made the New/Edit Lead modal full-screen on mobile.
-- Preserved existing desktop workflows and report exports.
-
 
 ## v2.6.5
 - Fixed Product Performance & Sales to show converted leads that have products attached, even when an older/manual conversion has no ConversionItem records.
