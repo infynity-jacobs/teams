@@ -121,6 +121,14 @@ def convert_lead(lead_id:int,payload:ConversionCreate,request:Request,current_us
     discount=max(0,payload.discount); taxable=max(0,subtotal-discount); tax=round(sum(round((price*q)*tp/100) for p,q,price,tp,line in items) * (taxable/subtotal if subtotal else 0)) if subtotal else 0
     total=taxable+tax
     conversion_date = payload.conversion_date or __import__('datetime').datetime.utcnow()
+    # Incentive attribution follows the lead's assigned marketing staff, not
+    # necessarily the user who clicks Convert. Managers/team leaders can
+    # convert on behalf of an agent, so preserve both identities.
+    seller = lead.assigned_to if lead.assigned_to and lead.assigned_to.role == RoleEnum.marketing_staff else None
+    seller_name = seller.full_name if seller else None
+    seller_username = seller.username if seller else None
+    seller_team_name = seller.team.name if seller and seller.team else None
+
     if existing_conversion:
         # A lead may be converted again after its status is moved back to a
         # non-converted state. Keep one current conversion record and replace
@@ -128,6 +136,10 @@ def convert_lead(lead_id:int,payload:ConversionCreate,request:Request,current_us
         db.query(ConversionItem).filter(ConversionItem.conversion_id==existing_conversion.id).delete(synchronize_session=False)
         c=existing_conversion
         c.converted_by_id=current_user.id
+        c.sold_by_id=seller.id if seller else None
+        c.sold_by_name=seller_name
+        c.sold_by_username=seller_username
+        c.sold_by_team_name=seller_team_name
         c.conversion_date=conversion_date
         c.subtotal=subtotal
         c.discount=discount
@@ -135,7 +147,12 @@ def convert_lead(lead_id:int,payload:ConversionCreate,request:Request,current_us
         c.total=total
         c.notes=payload.notes
     else:
-        c=Conversion(lead_id=lead_id,converted_by_id=current_user.id,conversion_date=conversion_date,subtotal=subtotal,discount=discount,tax=tax,total=total,notes=payload.notes)
+        c=Conversion(lead_id=lead_id,converted_by_id=current_user.id,
+                     sold_by_id=seller.id if seller else None,
+                     sold_by_name=seller_name, sold_by_username=seller_username,
+                     sold_by_team_name=seller_team_name,
+                     conversion_date=conversion_date,subtotal=subtotal,discount=discount,
+                     tax=tax,total=total,notes=payload.notes)
         db.add(c); db.flush()
     for p,q,price,tp,line in items: db.add(ConversionItem(conversion_id=c.id,product_id=p.id,product_name=p.name,sku=p.sku,quantity=q,unit_price=price,tax_percent=tp,line_total=line))
     old=lead.status.value; lead.status=__import__('app.models',fromlist=['LeadStatusEnum']).LeadStatusEnum.converted; lead.converted_at=c.conversion_date

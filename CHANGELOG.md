@@ -1,3 +1,13 @@
+# v2.6.0 — Sales Attribution & Incentive Reporting
+
+- Added historical seller attribution to conversions.
+- Sales are attributed to the marketing staff assigned to the lead at conversion time.
+- Preserved the actual converter separately (`Converted By`).
+- Product Performance now identifies Product, SKU, Sold By, Team, Converted Leads, Units Sold and Revenue.
+- Staff Performance now includes product-level sales rows, units sold, revenue, conversion date, lead/customer reference and converter.
+- XLSX/PDF/email report outputs use the same attribution logic.
+- Added migration `0005_sales_attribution.sql`.
+
 # v2.5.8.6 - Persistent Branding Uploads
 
 - Fixed upgrade deployment deleting runtime branding uploads under `backend/uploads`.

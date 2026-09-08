@@ -92,8 +92,23 @@ Views.dashboard = async function (root) {
   const statusHtml = dashboardDonut(statusDonutItems, "Leads");
 
   const teamRows = (teamReport.rows || []).filter(r => Number(r[1]) > 0).sort((a,b) => Number(b[1])-Number(a[1]));
-  const staffRows = (staffReport.rows || []).filter(r => Number(r[2]) > 0).sort((a,b) => Number(b[8])-Number(a[8]));
-  const productRows = (productReport.rows || []).filter(r => Number(r[2]) > 0).sort((a,b) => Number(b[2])-Number(a[2]));
+  // Staff report now has one row per staff/product sale. Collapse it back to
+  // one staff row for the dashboard KPI while keeping the detailed report.
+  const staffMap = new Map();
+  for (const r of (staffReport.rows || [])) {
+    if (Number(r[2]) <= 0) continue;
+    if (!staffMap.has(r[0])) staffMap.set(r[0], r);
+  }
+  const staffRows = [...staffMap.values()].sort((a,b) => Number(b[8])-Number(a[8]));
+  // Product report is seller-aware, so aggregate units by product for the
+  // dashboard rather than showing the same product once per seller.
+  const productMap = new Map();
+  for (const r of (productReport.rows || [])) {
+    const name = r[0];
+    if (!name) continue;
+    productMap.set(name, (productMap.get(name) || 0) + (Number(r[5]) || 0));
+  }
+  const productRows = [...productMap.entries()].map(([name, units]) => [name, "", units]).sort((a,b) => Number(b[2])-Number(a[2]));
 
   root.innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -177,8 +192,8 @@ Views.dashboard = async function (root) {
             <a href="#/reports?type=products" class="small">View report &rarr;</a>
           </div>
           <div class="card-body">
-            ${dashboardDonut(productRows.slice(0, 10).map(r => ({ label: r[0], value: Number(r[2]) || 0, href: "#/reports?type=products" })), "Product Leads")}
-            ${productRows.length ? `<div class="small text-muted mt-2">Showing the top ${Math.min(10, productRows.length)} products by interested leads. Click a product to open the Product Performance report.</div>` : ""}
+            ${dashboardDonut(productRows.slice(0, 10).map(r => ({ label: r[0], value: Number(r[2]) || 0, href: "#/reports?type=products" })), "Units Sold")}
+            ${productRows.length ? `<div class="small text-muted mt-2">Showing the top ${Math.min(10, productRows.length)} products by units sold. Click to open the Product Performance report.</div>` : ""}
           </div>
         </div>
       </div>
@@ -1326,9 +1341,9 @@ const REPORT_TYPES = [
   { key: "converted", label: "Converted Leads", endpoint: "/reports/leads", params: { stage: "converted" } },
   { key: "lost", label: "Lost / Closed Leads", endpoint: "/reports/leads", params: { stage: "lost" } },
   { key: "all", label: "All Leads", endpoint: "/reports/leads", params: { stage: "all" } },
-  { key: "staff", label: "Staff-wise Performance", endpoint: "/reports/staff-performance", params: {} },
+  { key: "staff", label: "Staff Performance & Sales", endpoint: "/reports/staff-performance", params: {} },
   { key: "team", label: "Team-wise Performance", endpoint: "/reports/team-performance", params: {} },
-  { key: "products", label: "Product Performance", endpoint: "/reports/products", params: {} },
+  { key: "products", label: "Product Performance & Sales", endpoint: "/reports/products", params: {} },
 ];
 
 Views.reports = async function (root) {

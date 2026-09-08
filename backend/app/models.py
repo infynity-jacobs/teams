@@ -249,6 +249,13 @@ class Conversion(Base):
     id = Column(Integer, primary_key=True, index=True)
     lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     converted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Incentive attribution is captured at conversion time. The snapshot fields
+    # preserve the seller identity even if the lead is reassigned or the user
+    # is later deactivated/deleted.
+    sold_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    sold_by_name = Column(String(200), nullable=True)
+    sold_by_username = Column(String(80), nullable=True)
+    sold_by_team_name = Column(String(120), nullable=True)
     conversion_date = Column(DateTime, default=utcnow)
     subtotal = Column(Integer, nullable=False, default=0)
     discount = Column(Integer, nullable=False, default=0)
@@ -257,7 +264,8 @@ class Conversion(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     lead = relationship("Lead", back_populates="conversion")
-    converted_by = relationship("User")
+    converted_by = relationship("User", foreign_keys=[converted_by_id])
+    sold_by = relationship("User", foreign_keys=[sold_by_id])
     items = relationship("ConversionItem", back_populates="conversion", cascade="all, delete-orphan")
 
 

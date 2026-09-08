@@ -4,6 +4,19 @@ PDF reports now render configured SVG logos by converting them to an in-memory P
 
 # Lead CRM — Marketing Lead Management & Conversion Application
 
+## v2.6.0 Sales Attribution & Incentive Reporting
+
+Version 2.6.0 extends the existing product/conversion reporting so offline incentive calculations can identify **which marketing staff sold which products**. At conversion time, the application snapshots the lead's assigned marketing staff as the seller while retaining the actual user who performed the conversion separately.
+
+Reports now provide:
+- Product → Sold By → Team → Units Sold → Converted Leads → Revenue
+- Staff → Product → SKU → Units Sold → Sales Revenue → Conversion Date → Lead/Customer → Converted By
+- The same attribution is used for on-screen reports, XLSX, PDF, and emailed reports.
+- Existing conversions are backfilled from their current lead assignment where possible.
+
+Upgrade with the normal `deploy/upgrade_ubuntu22.sh` workflow; migration `0005_sales_attribution.sql` is applied automatically.
+
+
 A web-based CRM for managing marketing leads through their full lifecycle:
 capture (manual or Excel import) → assignment → follow-up → conversion,
 with role-based access control, team/staff performance reporting, and an
