@@ -1,3 +1,8 @@
+## v2.6.5 Product Performance Accuracy Fix
+
+Version 2.6.5 clarifies Product Performance & Sales by distinguishing products attached to leads from actual recorded sales. The report now shows Lead Customers, Converted Leads, Sold Customers, Units Sold, and Sales Revenue. Converted Leads are based on the lead lifecycle status; Sold Customers, Units Sold, and Sales Revenue are based only on Conversion/ConversionItem records and remain the authoritative incentive figures.
+
+This release builds on v2.6.4 and requires no database migration.
 ## v2.6.3 Reports: KPI Summary & Incentive Sales Detail
 
 Version 2.6.3 separates staff lead-performance KPIs from transaction-level sales used for offline incentive calculations. It also keeps Product Performance focused on actual converted sales and preserves seller attribution from v2.6.0.
