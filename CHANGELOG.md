@@ -1,3 +1,12 @@
+# v2.7.2 — Header Navigation Color
+
+- Changed the application header navigation background to `#edf0f5`.
+- Changed header navigation menu text, brand text, user text, and icons to black.
+- Updated the mobile hamburger/toggler to use the black icon treatment.
+- Preserved the existing mobile bottom navigation styling.
+- Bumped frontend cache versions to `2.7.2`.
+- No database migration required.
+
 ## v2.7.0
 - Complete mobile UX release covering core navigation, leads, lead details, forms, reports, dashboard responsiveness, and mobile polish.
 - Added mobile bottom navigation with Home, Leads, New Lead, Reports and More/Profile access.

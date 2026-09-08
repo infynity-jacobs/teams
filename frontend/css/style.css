@@ -53,6 +53,40 @@ table.table td, table.table th { vertical-align: middle; }
 }
 
 
+
+/* v2.7.2 Header navigation - light background with black text/icons */
+.crm-header-nav {
+  background:#edf0f5 !important;
+  color:#000 !important;
+  border-bottom:1px solid #d9dee7;
+}
+.crm-header-nav .navbar-brand,
+.crm-header-nav .nav-link,
+.crm-header-nav .navbar-text {
+  color:#000 !important;
+}
+.crm-header-nav .nav-link:hover,
+.crm-header-nav .nav-link:focus,
+.crm-header-nav .nav-link.active {
+  color:#000 !important;
+}
+.crm-header-nav .navbar-toggler {
+  color:#000 !important;
+  border-color:rgba(0,0,0,.25);
+}
+.crm-header-nav .navbar-toggler-icon {
+  filter:invert(1);
+}
+.crm-header-nav .btn-outline-light {
+  color:#000 !important;
+  border-color:rgba(0,0,0,.35) !important;
+}
+.crm-header-nav .btn-outline-light:hover,
+.crm-header-nav .btn-outline-light:focus {
+  color:#000 !important;
+  background:#e2e6ed !important;
+}
+
 /* v2.7.0 Mobile UX */
 html, body { max-width: 100%; overflow-x: hidden; }
 body { -webkit-text-size-adjust: 100%; }
