@@ -50,7 +50,13 @@
     </div>
   </nav>
   <div class="container-fluid py-4 px-3 px-md-4" id="view-root"></div>
-  <nav id="mobile-bottom-nav" class="mobile-bottom-nav d-md-none" aria-label="Mobile navigation"></nav>
+  <nav id="mobile-bottom-nav" class="mobile-bottom-nav d-md-none" aria-label="Mobile navigation">
+    <a href="#/dashboard" class="mobile-bottom-item" data-mobile-nav="dashboard"><span class="mobile-bottom-icon"><i class="bi bi-house"></i></span><span>Home</span></a>
+    <a href="#/leads" class="mobile-bottom-item" data-mobile-nav="leads"><span class="mobile-bottom-icon"><i class="bi bi-people"></i></span><span>Leads</span></a>
+    <a href="#/leads?new=1" class="mobile-bottom-item mobile-bottom-primary" data-mobile-nav="new"><span class="mobile-bottom-icon"><i class="bi bi-plus-lg"></i></span><span>New Lead</span></a>
+    <a href="#/reports" class="mobile-bottom-item" data-mobile-nav="reports"><span class="mobile-bottom-icon"><i class="bi bi-bar-chart"></i></span><span>Reports</span></a>
+    <a href="#/profile" class="mobile-bottom-item" data-mobile-nav="profile"><span class="mobile-bottom-icon"><i class="bi bi-three-dots"></i></span><span>More</span></a>
+  </nav>
 </div>
 
 <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
@@ -58,7 +64,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="js/api.js"></script>
 <script src="js/ui.js"></script>
-<script src="js/views.js?v=2.7.0"></script>
-<script src="js/app.js?v=2.7.0"></script>
+<script src="js/views.js?v=2.7.1"></script>
+<script src="js/app.js?v=2.7.1"></script>
 </body>
 </html>

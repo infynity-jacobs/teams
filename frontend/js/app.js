@@ -23,21 +23,19 @@ function renderNav() {
 }
 
 function renderMobileNav() {
-  const user = Auth.getUser();
-  const items = [
-    { hash: "#/dashboard", label: "Home", icon: "bi-house" },
-    { hash: "#/leads", label: "Leads", icon: "bi-people" },
-    { hash: "#/leads?new=1", label: "New Lead", icon: "bi-plus-lg", primary: true },
-    { hash: "#/reports", label: "Reports", icon: "bi-bar-chart" },
-    { hash: "#/profile", label: "More", icon: "bi-three-dots" },
-  ];
   const nav = qs("#mobile-bottom-nav");
   if (!nav) return;
-  nav.innerHTML = items.map(item => {
-    const base = item.hash.split("?")[0];
-    const active = base === "#/dashboard" ? location.hash.startsWith("#/dashboard") : base === "#/leads" ? location.hash.startsWith("#/leads") : base === "#/reports" ? location.hash.startsWith("#/reports") : base === "#/profile" ? location.hash.startsWith("#/profile") : false;
-    return `<a href="${item.hash}" class="mobile-bottom-item ${item.primary ? "mobile-bottom-primary" : ""} ${active ? "active" : ""}"><span class="mobile-bottom-icon"><i class="bi ${item.icon}"></i></span><span>${item.label}</span></a>`;
-  }).join("");
+  const path = (location.hash || "#/dashboard").split("?")[0];
+  qsa("#mobile-bottom-nav .mobile-bottom-item").forEach(a => {
+    const key = a.getAttribute("data-mobile-nav");
+    let active = false;
+    if (key === "dashboard") active = path === "#/dashboard";
+    else if (key === "leads") active = path.startsWith("#/leads") && !location.hash.includes("?new=1");
+    else if (key === "new") active = location.hash.includes("?new=1");
+    else if (key === "reports") active = path.startsWith("#/reports");
+    else if (key === "profile") active = path.startsWith("#/profile");
+    a.classList.toggle("active", active);
+  });
 }
 
 function setActiveNav() {
@@ -153,7 +151,7 @@ async function router() {
   try {
     if (path === "dashboard") await Views.dashboard(root);
     else if (path === "profile") await Views.profile(root);
-    else if (path === "leads" && !param) await Views.leads(root);
+    else if (path === "leads" && !param) { await Views.leads(root); if (hash.includes("?new=1")) setTimeout(() => qs("#new-lead-btn")?.click(), 0); }
     else if (path === "leads" && param) await Views.leadDetail(root, param);
     else if (path === "products") await Views.products(root);
     else if (path === "follow-ups") await Views.followups(root);

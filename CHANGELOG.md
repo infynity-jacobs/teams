@@ -18,3 +18,10 @@
 
 ## v2.6.4
 - Product report fix.
+
+
+## v2.7.1
+- Fixed mobile bottom navigation rendering on iOS/Safari by using static navigation markup and explicit mobile visibility/positioning.
+- Added active-state handling without dynamic nav injection.
+- Fixed mobile New Lead action to open the New Lead form directly.
+- Bumped frontend cache version to 2.7.1.
