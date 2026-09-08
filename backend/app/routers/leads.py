@@ -46,6 +46,13 @@ def _to_out(lead: Lead) -> LeadOut:
     data = LeadOut.model_validate(lead)
     data.assigned_to_name = lead.assigned_to.full_name if lead.assigned_to else None
     data.team_name = lead.team.name if lead.team else None
+    # Keep the list page lightweight while exposing the products already
+    # attached to each lead. Product names are display data only; conversion
+    # quantities/revenue remain authoritative in the conversion records.
+    data.product_names = [
+        lp.product.name for lp in lead.products
+        if lp.product is not None
+    ]
     return data
 
 

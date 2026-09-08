@@ -144,6 +144,7 @@ class LeadOut(BaseModel):
     lost_reason: Optional[str] = None
     assigned_to_name: Optional[str] = None
     team_name: Optional[str] = None
+    product_names: List[str] = []
 
 
 class LeadListOut(BaseModel):

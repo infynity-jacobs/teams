@@ -1,10 +1,11 @@
 ## v2.5.7 PDF branding
 
+Version 2.6.2 updates the Leads list to show **Place / Area** and the products attached to each lead, while removing the Company and Source columns from the main list. Product names are display information only; incentive-eligible sales remain based on conversion records.
 PDF reports now render configured SVG logos by converting them to an in-memory PNG for ReportLab. PNG, JPEG and WebP logos remain supported. No database migration is required.
 
 # Lead CRM — Marketing Lead Management & Conversion Application
 
-## v2.6.1 Sales Attribution Report Fix
+## v2.6.2 Leads List Area & Products
 
 Version 2.6.1 extends the existing product/conversion reporting so offline incentive calculations can identify **which marketing staff sold which products**. At conversion time, the application snapshots the lead's assigned marketing staff as the seller while retaining the actual user who performed the conversion separately.
 

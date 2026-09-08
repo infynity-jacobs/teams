@@ -322,7 +322,7 @@ Views.leads = async function (root) {
     <div class="card">
       <div class="table-responsive">
         <table class="table table-hover mb-0">
-          <thead class="table-light"><tr><th>Name</th><th>Email / Phone</th><th>Company</th><th>Source</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Created</th></tr></thead>
+          <thead class="table-light"><tr><th>Name</th><th>Email / Phone</th><th>Area</th><th>Products</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Created</th></tr></thead>
           <tbody id="leads-tbody"><tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr></tbody>
         </table>
       </div>
@@ -374,8 +374,8 @@ Views._loadLeadsTable = async function (page) {
     <tr class="clickable-row" onclick="location.hash='#/leads/${l.id}'">
       <td>${escapeHtml(l.first_name)} ${escapeHtml(l.last_name || "")}</td>
       <td><div class="small">${escapeHtml(l.email || "-")}</div><div class="small text-muted">${escapeHtml(l.phone || "")}</div></td>
-      <td>${escapeHtml(l.company || "-")}</td>
-      <td>${escapeHtml(l.source || "-")}</td>
+      <td>${escapeHtml(l.place_area || "-")}</td>
+      <td>${l.product_names?.length ? l.product_names.map(p => `<span class="badge bg-light text-dark border me-1 mb-1">${escapeHtml(p)}</span>`).join("") : "-"}</td>
       <td>${statusBadge(l.status)}</td>
       <td>${escapeHtml(l.assigned_to_name || "Unassigned")}</td>
       <td>${escapeHtml(l.team_name || "-")}</td>

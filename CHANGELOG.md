@@ -1,3 +1,10 @@
+# v2.6.2 — Leads List Area & Products
+
+- Removed **Company** and **Source** columns from the main Leads list.
+- Added **Area** and **Products** columns.
+- Exposed attached product names in `LeadOut.product_names`.
+- Product display is informational only; conversion quantities and revenue remain the authoritative sales/incentive data.
+
 # v2.6.1 — Sales Attribution Report Fix
 
 - Product reports now retain product rows from lead-product interests instead of becoming empty when no conversion line exists.
