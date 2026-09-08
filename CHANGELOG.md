@@ -1,3 +1,12 @@
+# v2.6.3 — Reports clarity improvement
+
+- Separated Staff Performance into a clean KPI summary.
+- Added Incentive Sales Detail report for offline incentive calculation.
+- Added customer and phone information to incentive sales rows.
+- Kept Sold By and Converted By separate.
+- Simplified Product Performance to actual converted sales by product/staff.
+- Updated dashboard product units index for the revised report columns.
+
 # v2.6.2 — Leads List Area & Products
 
 - Removed **Company** and **Source** columns from the main Leads list.

@@ -218,6 +218,7 @@ def staff_performance_report(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Staff KPI summary only. Sales transactions are in /incentive-sales-detail."""
     base = _visible_leads_query(db, current_user)
     base = _apply_common_filters(base, date_from, date_to, team_id, staff_id, source, None)
     all_leads = base.all()
@@ -231,90 +232,72 @@ def staff_performance_report(
         staff_q = staff_q.filter(User.id == staff_id)
     staff_list = staff_q.order_by(User.full_name).all()
 
-    sales = _sales_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
-    interests = _product_interest_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
-
-    # Build one row per staff/product. This preserves product visibility even
-    # when a product is only an interested/quoted item; Units Sold and Revenue
-    # remain strictly conversion-based for incentive calculations.
-    by_staff_product = {}
-    for r in interests:
-        lp, lead = r["item"], r["lead"]
-        if not r["seller_id"]:
-            continue
-        product = lp.product
-        key = (r["seller_id"], lp.product_id, product.name if product else "", product.sku if product else "")
-        g = by_staff_product.setdefault(key, {"sold_units": 0, "revenue": 0, "sold_leads": set(), "dates": [], "converted_by": set(), "leads": set()})
-        g["leads"].add(lead.id)
-
-    for r in sales:
-        item, conversion, lead = r["item"], r["conversion"], r["lead"]
-        if not r["seller_id"]:
-            continue
-        key = (r["seller_id"], item.product_id, item.product_name, item.sku or "")
-        g = by_staff_product.setdefault(key, {"sold_units": 0, "revenue": 0, "sold_leads": set(), "dates": [], "converted_by": set(), "leads": set()})
-        g["sold_units"] += item.quantity
-        g["revenue"] += item.line_total
-        g["sold_leads"].add(lead.id)
-        if conversion.conversion_date:
-            g["dates"].append(conversion.conversion_date.strftime("%Y-%m-%d %H:%M"))
-        if conversion.converted_by:
-            g["converted_by"].add(conversion.converted_by.full_name)
-
-    headers = ["Staff", "Team", "Total Leads", "New", "Follow-up", "Pending", "Converted", "Lost",
-               "Conversion %", "Product", "SKU", "Units Sold", "Sales Revenue", "Conversion Date", "Lead ID", "Customer", "Converted By"]
+    headers = ["Staff", "Team", "Total Leads", "New", "Follow-up", "Pending", "Converted", "Lost", "Conversion %"]
     rows = []
     for staff in staff_list:
         leads = [l for l in all_leads if l.assigned_to_id == staff.id]
         total = len(leads)
         converted = sum(l.status == LeadStatusEnum.converted for l in leads)
         conv_pct = round((converted / total) * 100, 1) if total else 0.0
-        staff_keys = [k for k in by_staff_product if k[0] == staff.id]
-        if not staff_keys:
-            rows.append([staff.full_name, staff.team.name if staff.team else "", total,
-                         sum(l.status == LeadStatusEnum.new for l in leads),
-                         sum(l.status == LeadStatusEnum.follow_up for l in leads),
-                         sum(l.status == LeadStatusEnum.pending for l in leads), converted,
-                         sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct,
-                         "", "", 0, 0, "", "", "", ""])
-            continue
-        for key in sorted(staff_keys, key=lambda k: (k[2].lower(), k[3].lower())):
-            product_name, sku = key[2], key[3]
-            g = by_staff_product[key]
-            # For incentive detail, show the conversion-level date/customer
-            # when there is a sale. Interest-only rows intentionally have no
-            # conversion date and zero sales.
-            sale_rows = [r for r in sales if r["seller_id"] == staff.id and r["item"].product_id == key[1]]
-            if sale_rows:
-                for r in sale_rows:
-                    item, conversion, lead = r["item"], r["conversion"], r["lead"]
-                    rows.append([staff.full_name, staff.team.name if staff.team else "", total,
-                                 sum(l.status == LeadStatusEnum.new for l in leads),
-                                 sum(l.status == LeadStatusEnum.follow_up for l in leads),
-                                 sum(l.status == LeadStatusEnum.pending for l in leads), converted,
-                                 sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct,
-                                 item.product_name, item.sku or "", item.quantity, item.line_total,
-                                 conversion.conversion_date.strftime("%Y-%m-%d %H:%M") if conversion.conversion_date else "",
-                                 lead.id, f"{lead.first_name} {lead.last_name or ''}".strip(),
-                                 conversion.converted_by.full_name if conversion.converted_by else ""])
-            else:
-                rows.append([staff.full_name, staff.team.name if staff.team else "", total,
-                             sum(l.status == LeadStatusEnum.new for l in leads),
-                             sum(l.status == LeadStatusEnum.follow_up for l in leads),
-                             sum(l.status == LeadStatusEnum.pending for l in leads), converted,
-                             sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct,
-                             product_name, sku, 0, 0, "", "", "", ""])
+        rows.append([
+            staff.full_name, staff.team.name if staff.team else "", total,
+            sum(l.status == LeadStatusEnum.new for l in leads),
+            sum(l.status == LeadStatusEnum.follow_up for l in leads),
+            sum(l.status == LeadStatusEnum.pending for l in leads),
+            converted,
+            sum(l.status == LeadStatusEnum.lost for l in leads),
+            conv_pct,
+        ])
 
     if export == "xlsx":
         data = build_xlsx(headers, rows, title="staff_performance")
         return StreamingResponse(iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=staff_performance.xlsx"})
     if export == "pdf":
-        data = build_pdf(headers, rows, title="Staff Performance & Sales Report",
-                         subtitle=f"Sales attributed to the lead's assigned marketing staff • Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+        data = build_pdf(headers, rows, title="Staff Performance Summary Report",
+                         subtitle=f"Lead KPI summary • Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
                          branding=_report_branding(db))
         return StreamingResponse(iter([data]), media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=staff_performance.pdf"})
+    return {"headers": headers, "rows": rows}
+
+
+@router.get("/incentive-sales-detail")
+def incentive_sales_detail_report(
+    date_from: Optional[dt.date] = None,
+    date_to: Optional[dt.date] = None,
+    team_id: Optional[int] = None,
+    staff_id: Optional[int] = None,
+    source: Optional[str] = None,
+    export: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Transaction-level converted sales, intended for offline incentives."""
+    sales = _sales_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
+    headers = ["Conversion Date", "Staff", "Team", "Customer", "Phone", "Lead ID",
+               "Product", "SKU", "Qty", "Unit Price", "Sales Amount", "Converted By"]
+    rows = []
+    for r in sales:
+        item, conversion, lead = r["item"], r["conversion"], r["lead"]
+        customer = f"{lead.first_name} {lead.last_name or ''}".strip()
+        rows.append([
+            conversion.conversion_date.strftime("%Y-%m-%d %H:%M") if conversion.conversion_date else "",
+            r["seller_name"], r["seller_team"], customer, lead.phone or "", lead.id,
+            item.product_name, item.sku or "", item.quantity, item.unit_price, item.line_total,
+            conversion.converted_by.full_name if conversion.converted_by else "",
+        ])
+
+    if export == "xlsx":
+        data = build_xlsx(headers, rows, title="incentive_sales_detail")
+        return StreamingResponse(iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=incentive_sales_detail.xlsx"})
+    if export == "pdf":
+        data = build_pdf(headers, rows, title="Incentive Sales Detail Report",
+                         subtitle=f"Actual converted sales • Date range uses conversion date • Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+                         branding=_report_branding(db))
+        return StreamingResponse(iter([data]), media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=incentive_sales_detail.pdf"})
     return {"headers": headers, "rows": rows}
 
 
@@ -428,7 +411,7 @@ def email_report(payload: ReportEmailRequest, request: Request,
                  current_user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
     """Generate a report using the same visibility rules as exports and email it."""
-    allowed_types = {"new", "follow_up", "pending", "converted", "lost", "closed", "all", "staff", "team", "products"}
+    allowed_types = {"new", "follow_up", "pending", "converted", "lost", "closed", "all", "staff", "team", "products", "incentive_sales"}
     requested = {str(x).lower() for x in payload.attachments}
     if payload.report_type not in allowed_types:
         raise HTTPException(400, "Unsupported report type")
@@ -441,40 +424,51 @@ def email_report(payload: ReportEmailRequest, request: Request,
         groups = {}
         for r in sales:
             item, lead = r["item"], r["lead"]
-            key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_username"], r["seller_team"])
-            g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0, "currency": ""})
-            g["units"] += item.quantity; g["sold_leads"].add(lead.id)
-            g["revenue"] += item.line_total
-            if item.product and item.product.currency: g["currency"] = item.product.currency
-        headers = ["Product", "SKU", "Sold By", "Team", "Converted Leads", "Units Sold", "Revenue", "Conversion Date Range"]
-        rows = []
-        for key, g in sorted(groups.items(), key=lambda x: (x[0][1].lower(), x[0][4].lower())):
-            rows.append([key[1], key[2], key[4], key[6], len(g["sold_leads"]), g["units"], f'{g["currency"]} {g["revenue"]}'.strip(), f'{payload.date_from or "All"} to {payload.date_to or "All"}'])
-        title = "Product Performance & Sales Attribution Report"
+            key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_team"])
+            g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0})
+            g["units"] += item.quantity; g["sold_leads"].add(lead.id); g["revenue"] += item.line_total
+        headers = ["Product", "SKU", "Sold By", "Team", "Converted Customers", "Units Sold", "Sales Revenue"]
+        rows = [[key[1], key[2], key[4], key[5], len(g["sold_leads"]), g["units"], g["revenue"]]
+                for key, g in sorted(groups.items(), key=lambda x: (x[0][1].lower(), x[0][4].lower()))]
+        title = "Product Performance & Sales Report"
     elif payload.report_type == "staff":
         base = _apply_common_filters(_visible_leads_query(db, current_user), payload.date_from, payload.date_to, payload.team_id, payload.staff_id, payload.source, None)
         staff_q = db.query(User).filter(User.role == RoleEnum.marketing_staff)
-        if current_user.role == RoleEnum.team_leader: staff_q = staff_q.filter(User.team_id == current_user.team_id)
-        if payload.team_id: staff_q = staff_q.filter(User.team_id == payload.team_id)
-        if payload.staff_id: staff_q = staff_q.filter(User.id == payload.staff_id)
+        if current_user.role == RoleEnum.team_leader:
+            staff_q = staff_q.filter(User.team_id == current_user.team_id)
+        if payload.team_id:
+            staff_q = staff_q.filter(User.team_id == payload.team_id)
+        if payload.staff_id:
+            staff_q = staff_q.filter(User.id == payload.staff_id)
         staff_list = staff_q.order_by(User.full_name).all()
-        sales = _sales_rows(db, current_user, payload.date_from, payload.date_to, payload.team_id, payload.staff_id, payload.source)
-        sales_by_staff = {}
-        for r in sales: sales_by_staff.setdefault(r["seller_id"], []).append(r)
-        headers = ["Staff", "Team", "Total Leads", "New", "Follow-up", "Pending", "Converted", "Lost", "Conversion %", "Product", "SKU", "Units Sold", "Sales Revenue", "Conversion Date", "Lead ID", "Customer", "Converted By"]
+        headers = ["Staff", "Team", "Total Leads", "New", "Follow-up", "Pending", "Converted", "Lost", "Conversion %"]
         rows = []
         all_leads = base.all()
         for staff in staff_list:
             leads = [l for l in all_leads if l.assigned_to_id == staff.id]
-            total = len(leads); converted = sum(l.status == LeadStatusEnum.converted for l in leads); conv_pct = round(converted * 100 / total, 1) if total else 0.0
-            staff_sales = sales_by_staff.get(staff.id, [])
-            if not staff_sales:
-                rows.append([staff.full_name, staff.team.name if staff.team else "", total, sum(l.status == LeadStatusEnum.new for l in leads), sum(l.status == LeadStatusEnum.follow_up for l in leads), sum(l.status == LeadStatusEnum.pending for l in leads), converted, sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct, "", "", 0, 0, "", "", "", ""])
-            else:
-                for r in staff_sales:
-                    item, conversion, lead = r["item"], r["conversion"], r["lead"]
-                    rows.append([staff.full_name, staff.team.name if staff.team else "", total, sum(l.status == LeadStatusEnum.new for l in leads), sum(l.status == LeadStatusEnum.follow_up for l in leads), sum(l.status == LeadStatusEnum.pending for l in leads), converted, sum(l.status == LeadStatusEnum.lost for l in leads), conv_pct, item.product_name, item.sku or "", item.quantity, item.line_total, conversion.conversion_date.strftime("%Y-%m-%d %H:%M") if conversion.conversion_date else "", lead.id, f"{lead.first_name} {lead.last_name or ''}".strip(), conversion.converted_by.full_name if conversion.converted_by else ""])
-        title = "Staff Performance & Sales Report"
+            total = len(leads)
+            converted = sum(l.status == LeadStatusEnum.converted for l in leads)
+            rows.append([staff.full_name, staff.team.name if staff.team else "", total,
+                         sum(l.status == LeadStatusEnum.new for l in leads),
+                         sum(l.status == LeadStatusEnum.follow_up for l in leads),
+                         sum(l.status == LeadStatusEnum.pending for l in leads), converted,
+                         sum(l.status == LeadStatusEnum.lost for l in leads),
+                         round(converted * 100 / total, 1) if total else 0.0])
+        title = "Staff Performance Summary Report"
+    elif payload.report_type == "incentive_sales":
+        sales = _sales_rows(db, current_user, payload.date_from, payload.date_to, payload.team_id, payload.staff_id, payload.source)
+        headers = ["Conversion Date", "Staff", "Team", "Customer", "Phone", "Lead ID",
+                   "Product", "SKU", "Qty", "Unit Price", "Sales Amount", "Converted By"]
+        rows = []
+        for r in sales:
+            item, conversion, lead = r["item"], r["conversion"], r["lead"]
+            rows.append([
+                conversion.conversion_date.strftime("%Y-%m-%d %H:%M") if conversion.conversion_date else "",
+                r["seller_name"], r["seller_team"], f"{lead.first_name} {lead.last_name or ''}".strip(),
+                lead.phone or "", lead.id, item.product_name, item.sku or "", item.quantity,
+                item.unit_price, item.line_total, conversion.converted_by.full_name if conversion.converted_by else ""
+            ])
+        title = "Incentive Sales Detail Report"
     else:
         stage = "all" if payload.report_type == "all" else payload.report_type
         q = _visible_leads_query(db, current_user)
@@ -509,47 +503,30 @@ def product_performance_report(
     team_id: Optional[int] = None, staff_id: Optional[int] = None, source: Optional[str] = None,
     export: Optional[str] = Query(None), current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)):
+    """Aggregate actual converted sales by product and attributed staff."""
     sales = _sales_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
-    interests = _product_interest_rows(db, current_user, date_from, date_to, team_id, staff_id, source)
-
-    # Include products attached to visible leads as well as products actually
-    # sold. A product with no conversion remains clearly distinguishable by
-    # zero Units Sold / Revenue, rather than disappearing from the report.
     groups = {}
-    for r in interests:
-        item = r["item"]
-        product = item.product
-        key = (item.product_id, product.name if product else "", product.sku if product else "",
-               r["seller_id"], r["seller_name"], r["seller_team"])
-        g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0, "currency": ""})
-        if product and product.currency:
-            g["currency"] = product.currency
-
     for r in sales:
         item, lead = r["item"], r["lead"]
         key = (item.product_id, item.product_name, item.sku or "", r["seller_id"], r["seller_name"], r["seller_team"])
-        g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0, "currency": ""})
+        g = groups.setdefault(key, {"units": 0, "sold_leads": set(), "revenue": 0})
         g["units"] += item.quantity
         g["sold_leads"].add(lead.id)
         g["revenue"] += item.line_total
-        if item.product and item.product.currency:
-            g["currency"] = item.product.currency
 
-    headers = ["Product", "SKU", "Sold By", "Team", "Converted Leads", "Units Sold", "Revenue", "Conversion Date Range"]
+    headers = ["Product", "SKU", "Sold By", "Team", "Converted Customers", "Units Sold", "Sales Revenue"]
     rows = []
     for key, g in sorted(groups.items(), key=lambda x: (x[0][1].lower(), x[0][4].lower())):
-        rows.append([key[1], key[2], key[4], key[5], len(g["sold_leads"]), g["units"],
-                     f'{g["currency"]} {g["revenue"]}'.strip(),
-                     f'{date_from or "All"} to {date_to or "All"}'])
+        rows.append([key[1], key[2], key[4], key[5], len(g["sold_leads"]), g["units"], g["revenue"]])
 
     if export == "xlsx":
         data = build_xlsx(headers, rows, title="product_performance")
         return StreamingResponse(iter([data]), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=product_performance.xlsx"})
     if export == "pdf":
-        data = build_pdf(headers, rows, title="Product Performance & Sales Attribution Report",
-                         subtitle=f"Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}", branding=_report_branding(db))
+        data = build_pdf(headers, rows, title="Product Performance & Sales Report",
+                         subtitle=f"Actual converted sales • Generated {dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+                         branding=_report_branding(db))
         return StreamingResponse(iter([data]), media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=product_performance.pdf"})
     return {"headers": headers, "rows": rows}
-

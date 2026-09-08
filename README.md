@@ -1,3 +1,13 @@
+## v2.6.3 Reports: KPI Summary & Incentive Sales Detail
+
+Version 2.6.3 separates staff lead-performance KPIs from transaction-level sales used for offline incentive calculations. It also keeps Product Performance focused on actual converted sales and preserves seller attribution from v2.6.0.
+
+### Reports
+- Staff Performance Summary: lead KPIs only.
+- Incentive Sales Detail: one row per converted product line with conversion date, staff, team, customer, phone, lead ID, product, SKU, quantity, unit price, sales amount, and Converted By.
+- Product Performance & Sales: aggregate actual converted sales by product and attributed staff.
+- Date filters on Incentive Sales Detail and Product Performance use conversion date.
+
 ## v2.5.7 PDF branding
 
 Version 2.6.2 updates the Leads list to show **Place / Area** and the products attached to each lead, while removing the Company and Source columns from the main list. Product names are display information only; incentive-eligible sales remain based on conversion records.

@@ -192,7 +192,7 @@ Views.dashboard = async function (root) {
             <a href="#/reports?type=products" class="small">View report &rarr;</a>
           </div>
           <div class="card-body">
-            ${dashboardDonut(productRows.slice(0, 10).map(r => ({ label: r[0], value: Number(r[2]) || 0, href: "#/reports?type=products" })), "Units Sold")}
+            ${dashboardDonut(productRows.slice(0, 10).map(r => ({ label: r[0], value: Number(r[5]) || 0, href: "#/reports?type=products" })), "Units Sold")}
             ${productRows.length ? `<div class="small text-muted mt-2">Showing the top ${Math.min(10, productRows.length)} products by units sold. Click to open the Product Performance report.</div>` : ""}
           </div>
         </div>
@@ -1341,7 +1341,8 @@ const REPORT_TYPES = [
   { key: "converted", label: "Converted Leads", endpoint: "/reports/leads", params: { stage: "converted" } },
   { key: "lost", label: "Lost / Closed Leads", endpoint: "/reports/leads", params: { stage: "lost" } },
   { key: "all", label: "All Leads", endpoint: "/reports/leads", params: { stage: "all" } },
-  { key: "staff", label: "Staff Performance & Sales", endpoint: "/reports/staff-performance", params: {} },
+  { key: "staff", label: "Staff Performance Summary", endpoint: "/reports/staff-performance", params: {} },
+  { key: "incentive_sales", label: "Incentive Sales Detail", endpoint: "/reports/incentive-sales-detail", params: {} },
   { key: "team", label: "Team-wise Performance", endpoint: "/reports/team-performance", params: {} },
   { key: "products", label: "Product Performance & Sales", endpoint: "/reports/products", params: {} },
 ];
